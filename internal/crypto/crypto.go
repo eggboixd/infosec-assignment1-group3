@@ -112,3 +112,13 @@ type Encryptor interface {
 	// DecryptField verifies and decrypts a value produced by EncryptField.
 	DecryptField(alg Algorithm, meta Meta, ciphertext []byte) ([]byte, error)
 }
+
+// Sealed is a small value encrypted with EncryptField, stored as-is in
+// MongoDB (for example one private-data field or an original filename).
+type Sealed struct {
+	Ciphertext []byte `bson:"ct"`
+	Meta       Meta   `bson:"meta"`
+}
+
+// SealedSet holds the same value encrypted once with each algorithm.
+type SealedSet map[Algorithm]Sealed
