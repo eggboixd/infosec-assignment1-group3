@@ -1,0 +1,10 @@
+{{define "benchmarks.html"}}{{template "header" .}}
+<h1>Benchmarks</h1>
+{{/* TODO(feature/benchmark): render per-algorithm averages and the raw
+     records from .Records. */}}
+<p><a href="/benchmarks/export.csv">Export CSV</a></p>
+<table>
+  <thead><tr><th>Time</th><th>Algorithm</th><th>Operation</th><th>Bytes</th><th>Crypto (ms)</th><th>Total (ms)</th></tr></thead>
+  <tbody></tbody>
+</table>
+{{template "footer" .}}{{end}}

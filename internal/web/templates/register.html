@@ -1,0 +1,10 @@
+{{define "register.html"}}{{template "header" .}}
+<h1>Register</h1>
+{{/* TODO(feature/frontend): show validation errors from .Errors. */}}
+<form method="post" action="/register" class="stack">
+  <label>Username <input name="username" autocomplete="username" required minlength="3" maxlength="32"></label>
+  <label>Password <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+  <label>Confirm password <input name="confirm" type="password" autocomplete="new-password" required></label>
+  <button type="submit">Create account</button>
+</form>
+{{template "footer" .}}{{end}}

@@ -1,0 +1,23 @@
+{{define "files.html"}}{{template "header" .}}
+<h1>Files</h1>
+{{/* The "kind" field must come before "file" so the server can validate it
+     before streaming the upload.
+     TODO(feature/frontend): render .Files with one download link per
+     algorithm (/files/ID/download?alg=aes|des|rc4) and a delete button
+     using hx-delete="/files/ID" hx-target="closest tr" hx-swap="outerHTML". */}}
+<form method="post" action="/files" enctype="multipart/form-data" class="stack">
+  <label>Kind
+    <select name="kind" required>
+      <option value="idcard">ID card (JPEG, PNG)</option>
+      <option value="document">Document (PDF, DOC, DOCX, XLS, XLSX)</option>
+      <option value="video">Video (MP4, WebM)</option>
+    </select>
+  </label>
+  <label>File <input name="file" type="file" required></label>
+  <button type="submit">Upload</button>
+</form>
+<table>
+  <thead><tr><th>Name</th><th>Kind</th><th>Size</th><th>Download</th><th></th></tr></thead>
+  <tbody></tbody>
+</table>
+{{template "footer" .}}{{end}}
