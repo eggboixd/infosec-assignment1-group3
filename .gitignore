@@ -1,0 +1,23 @@
+# Binaries
+/bin/
+/server
+*.exe
+*.test
+*.out
+coverage.*
+
+# Secrets and local overrides
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
+
+# Keys
+*.pem
+*.key
+
+# IDE and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
