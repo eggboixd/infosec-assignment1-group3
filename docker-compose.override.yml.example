@@ -1,0 +1,13 @@
+# Local development only. Copy to docker-compose.override.yml (gitignored).
+# Exposes MongoDB, the MinIO API, and the MinIO console on 127.0.0.1 only,
+# so `make run` and local tools can reach them. Never bind these to 0.0.0.0.
+
+services:
+  mongo:
+    ports:
+      - "127.0.0.1:27017:27017"
+
+  minio:
+    ports:
+      - "127.0.0.1:9000:9000" # S3 API
+      - "127.0.0.1:9001:9001" # web console

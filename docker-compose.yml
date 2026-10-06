@@ -1,0 +1,93 @@
+# Only the app publishes a port. MongoDB and MinIO are reachable from the app
+# by service name on the internal network. Copy
+# docker-compose.override.yml.example to docker-compose.override.yml to expose
+# them on 127.0.0.1 for local development.
+
+name: securestore
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      GIN_MODE: release
+      HTTP_ADDR: ":8080"
+      MONGO_URI: "mongodb://${MONGO_ROOT_USERNAME:?set in .env}:${MONGO_ROOT_PASSWORD:?set in .env}@mongo:27017/?authSource=admin"
+      MONGO_DATABASE: "${MONGO_DATABASE:-securestore}"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "${MINIO_ROOT_USER:?set in .env}"
+      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:?set in .env}"
+      MINIO_BUCKET: "${MINIO_BUCKET:-securestore}"
+      MINIO_USE_SSL: "false"
+      MASTER_KEY: "${MASTER_KEY:?set in .env}"
+      SESSION_SECRET: "${SESSION_SECRET:?set in .env}"
+      MAX_BODY_BYTES: "${MAX_BODY_BYTES:-2147483648}"
+      SHUTDOWN_TIMEOUT: "${SHUTDOWN_TIMEOUT:-15s}"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    # Must exceed SHUTDOWN_TIMEOUT so in-flight requests can finish.
+    stop_grace_period: 30s
+
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${MONGO_ROOT_USERNAME:?set in .env}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_ROOT_PASSWORD:?set in .env}"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  minio:
+    build: ./deploy/minio
+    image: securestore-minio:local
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?set in .env}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?set in .env}"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # One-shot job: creates the bucket, then exits 0. Same image as minio,
+  # running the bundled mc client.
+  minio-init:
+    # Same build context and tag as minio, so the image is built once and
+    # never pulled from a registry.
+    build: ./deploy/minio
+    image: securestore-minio:local
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?set in .env}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?set in .env}"
+      MINIO_BUCKET: "${MINIO_BUCKET:-securestore}"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        mc mb --ignore-existing "local/$$MINIO_BUCKET" &&
+        mc anonymous set none "local/$$MINIO_BUCKET"
+    restart: "no"
+
+volumes:
+  mongo-data:
+  minio-data:

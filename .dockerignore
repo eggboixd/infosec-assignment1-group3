@@ -1,0 +1,11 @@
+.git
+.github
+.env
+.env.*
+docker-compose*.yml
+docker-compose.override.yml.example
+deploy
+docs
+scripts
+bin
+*.md

@@ -1,0 +1,10 @@
+{{define "login.html"}}{{template "header" .}}
+<h1>Log in</h1>
+{{/* TODO(feature/frontend): show validation errors from .Errors. */}}
+<form method="post" action="/login" class="stack">
+  <label>Username <input name="username" autocomplete="username" required maxlength="32"></label>
+  <label>Password <input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
+  <button type="submit">Log in</button>
+</form>
+<p>No account? <a href="/register">Register</a></p>
+{{template "footer" .}}{{end}}

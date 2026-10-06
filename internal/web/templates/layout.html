@@ -1,0 +1,34 @@
+{{/* Shared page chrome. Pages call {{template "header" .}} and {{template "footer" .}}.
+     TODO(feature/frontend): build out navigation and flash messages. */}}
+{{define "header"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
+  <title>{{if .Title}}{{.Title}} · {{end}}Secure Store</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js"
+          integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
+          crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">Secure Store</a>
+    {{if .User}}
+    <nav>
+      <a href="/files">Files</a>
+      <a href="/profile">Profile</a>
+      <a href="/benchmarks">Benchmarks</a>
+      <form method="post" action="/logout" class="inline"><button type="submit">Log out</button></form>
+    </nav>
+    {{end}}
+  </header>
+  <main>
+{{end}}
+
+{{define "footer"}}
+  </main>
+</body>
+</html>
+{{end}}
