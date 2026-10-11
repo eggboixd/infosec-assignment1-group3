@@ -78,9 +78,10 @@ func run() error {
 		return err
 	}
 
-	// TODO(feature/crypto-core): replace PassthroughEncryptor with the real
-	// Encryptor built from cfg.MasterKey.
-	var enc crypto.Encryptor = crypto.PassthroughEncryptor{}
+	enc, err := crypto.NewEnvelope(cfg.MasterKey)
+	if err != nil {
+		return err
+	}
 
 	// TODO(feature/private-data): derive with
 	// crypto.DeriveKey(cfg.MasterKey, "nik-blind-index") once implemented.
