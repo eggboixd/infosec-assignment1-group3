@@ -188,21 +188,24 @@ func TestEnvelopeDetectsTampering(t *testing.T) {
 	type mutation func(ct []byte, m *Meta, other Meta) []byte
 	flip := func(b []byte, i int) []byte { b = bytes.Clone(b); b[i] ^= 0x01; return b }
 	mutations := map[string]mutation{
-		"flip first ct byte":      func(ct []byte, m *Meta, _ Meta) []byte { return flip(ct, 0) },
-		"flip middle ct byte":     func(ct []byte, m *Meta, _ Meta) []byte { return flip(ct, len(ct)/2) },
-		"flip last ct byte":       func(ct []byte, m *Meta, _ Meta) []byte { return flip(ct, len(ct)-1) },
-		"truncate ct":             func(ct []byte, m *Meta, _ Meta) []byte { return ct[:len(ct)-1] },
-		"append to ct":            func(ct []byte, m *Meta, _ Meta) []byte { return append(bytes.Clone(ct), 0) },
-		"empty ct":                func(ct []byte, m *Meta, _ Meta) []byte { return nil },
-		"flip tag":                func(ct []byte, m *Meta, _ Meta) []byte { m.Tag = flip(m.Tag, 5); return ct },
-		"truncate tag":            func(ct []byte, m *Meta, _ Meta) []byte { m.Tag = m.Tag[:16]; return ct },
-		"missing tag":             func(ct []byte, m *Meta, _ Meta) []byte { m.Tag = nil; return ct },
-		"flip wrapped dek":        func(ct []byte, m *Meta, _ Meta) []byte { m.WrappedDEK = flip(m.WrappedDEK, 20); return ct },
-		"flip wrapped mac key":    func(ct []byte, m *Meta, _ Meta) []byte { m.WrappedMACKey = flip(m.WrappedMACKey, 20); return ct },
-		"dek from other object":   func(ct []byte, m *Meta, o Meta) []byte { m.WrappedDEK = o.WrappedDEK; return ct },
-		"mac key from other":      func(ct []byte, m *Meta, o Meta) []byte { m.WrappedMACKey = o.WrappedMACKey; return ct },
-		"whole meta from other":   func(ct []byte, m *Meta, o Meta) []byte { *m = o; return ct },
-		"keys and tag from other": func(ct []byte, m *Meta, o Meta) []byte { m.WrappedDEK, m.WrappedMACKey, m.Tag = o.WrappedDEK, o.WrappedMACKey, o.Tag; return ct },
+		"flip first ct byte":    func(ct []byte, m *Meta, _ Meta) []byte { return flip(ct, 0) },
+		"flip middle ct byte":   func(ct []byte, m *Meta, _ Meta) []byte { return flip(ct, len(ct)/2) },
+		"flip last ct byte":     func(ct []byte, m *Meta, _ Meta) []byte { return flip(ct, len(ct)-1) },
+		"truncate ct":           func(ct []byte, m *Meta, _ Meta) []byte { return ct[:len(ct)-1] },
+		"append to ct":          func(ct []byte, m *Meta, _ Meta) []byte { return append(bytes.Clone(ct), 0) },
+		"empty ct":              func(ct []byte, m *Meta, _ Meta) []byte { return nil },
+		"flip tag":              func(ct []byte, m *Meta, _ Meta) []byte { m.Tag = flip(m.Tag, 5); return ct },
+		"truncate tag":          func(ct []byte, m *Meta, _ Meta) []byte { m.Tag = m.Tag[:16]; return ct },
+		"missing tag":           func(ct []byte, m *Meta, _ Meta) []byte { m.Tag = nil; return ct },
+		"flip wrapped dek":      func(ct []byte, m *Meta, _ Meta) []byte { m.WrappedDEK = flip(m.WrappedDEK, 20); return ct },
+		"flip wrapped mac key":  func(ct []byte, m *Meta, _ Meta) []byte { m.WrappedMACKey = flip(m.WrappedMACKey, 20); return ct },
+		"dek from other object": func(ct []byte, m *Meta, o Meta) []byte { m.WrappedDEK = o.WrappedDEK; return ct },
+		"mac key from other":    func(ct []byte, m *Meta, o Meta) []byte { m.WrappedMACKey = o.WrappedMACKey; return ct },
+		"whole meta from other": func(ct []byte, m *Meta, o Meta) []byte { *m = o; return ct },
+		"keys and tag from other": func(ct []byte, m *Meta, o Meta) []byte {
+			m.WrappedDEK, m.WrappedMACKey, m.Tag = o.WrappedDEK, o.WrappedMACKey, o.Tag
+			return ct
+		},
 		"iv wrong length": func(ct []byte, m *Meta, _ Meta) []byte {
 			m.IV = make([]byte, len(m.IV)+8) // RC4 gains an IV it must not have
 			return ct
