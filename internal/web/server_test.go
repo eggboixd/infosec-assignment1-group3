@@ -240,10 +240,28 @@ func TestNoRouteRendersConfusedPage(t *testing.T) {
 }
 
 func TestStaticAssetsServed(t *testing.T) {
-	r, _ := newTestEngine(t, 1024)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/static/style.css", nil))
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want 200", w.Code)
+	tests := []struct {
+		path        string
+		contentType string
+	}{
+		{"/static/style.css", "text/css"},
+		{"/static/mascot.css", "text/css"},
+		{"/static/app.js", "javascript"},
+		{"/static/mascot.js", "javascript"},
+		{"/static/fonts/nunito-latin-wght-normal.woff2", "font/woff2"},
+		{"/static/fonts/OFL.txt", "text/plain"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			r, _ := newTestEngine(t, 1024)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, tt.path, nil))
+			if w.Code != http.StatusOK {
+				t.Errorf("status = %d, want 200", w.Code)
+			}
+			if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, tt.contentType) {
+				t.Errorf("Content-Type = %q, want it to contain %q", ct, tt.contentType)
+			}
+		})
 	}
 }

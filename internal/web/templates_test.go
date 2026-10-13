@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -353,6 +354,76 @@ func TestErrorTemplate(t *testing.T) {
 			data:    map[string]any{"Message": "<b>boom</b>"},
 			want:    []string{"&lt;b&gt;boom&lt;/b&gt;"},
 			notWant: []string{"<b>boom"},
+		},
+	})
+}
+
+// The CSP (middleware.go) allows only same-origin scripts and styles, so an
+// inline style, inline script or event-handler attribute would be blocked
+// in the browser and silently break the page. This test catches them in CI.
+var cspViolations = []struct {
+	what string
+	re   *regexp.Regexp
+}{
+	{"style attribute", regexp.MustCompile(`(?i)\sstyle\s*=`)},
+	{"<style> element", regexp.MustCompile(`(?i)<style[\s>]`)},
+	{"event-handler attribute", regexp.MustCompile(`(?i)\son[a-z]+\s*=`)},
+	{"javascript: URL", regexp.MustCompile(`(?i)javascript:`)},
+}
+
+var scriptTag = regexp.MustCompile(`(?i)<script\b[^>]*>`)
+
+func TestTemplatesAreCSPSafe(t *testing.T) {
+	full := map[string]any{
+		"Title":        "Test",
+		"User":         &auth.User{Username: "u"},
+		"Flash":        map[string]string{"Kind": "success", "Message": "Saved."},
+		"Errors":       []string{"Something is wrong."},
+		"Files":        testFiles,
+		"JustLoggedIn": true,
+		"Profile":      &profile.PrivateData{FullName: "Test Person"},
+		"Alg":          crypto.AES,
+		"Records":      []benchmark.Record{{}},
+		"Status":       404,
+		"Message":      "Not found.",
+	}
+	for _, page := range []string{"login.html", "register.html", "files.html", "profile.html", "benchmarks.html", "error.html"} {
+		for _, data := range []map[string]any{{}, full} {
+			out := renderPage(t, page, data)
+			for _, v := range cspViolations {
+				if loc := v.re.FindStringIndex(out); loc != nil {
+					t.Errorf("%s: %s near %q", page, v.what, out[loc[0]:min(loc[1]+40, len(out))])
+				}
+			}
+			for _, tag := range scriptTag.FindAllString(out, -1) {
+				if !strings.Contains(tag, " src=") {
+					t.Errorf("%s: inline script %q", page, tag)
+				}
+			}
+		}
+	}
+}
+
+func TestLayoutRendersFlash(t *testing.T) {
+	runPageCases(t, []pageCase{
+		{
+			name: "flash with kind and message",
+			page: "files.html",
+			data: map[string]any{"Flash": map[string]string{"Kind": "success", "Message": "File deleted."}},
+			want: []string{`class="flash flash--success"`, `role="status"`, "File deleted.", "data-dismiss"},
+		},
+		{
+			name:    "no flash",
+			page:    "files.html",
+			data:    map[string]any{},
+			notWant: []string{`class="flash`},
+		},
+		{
+			name:    "flash message is escaped",
+			page:    "login.html",
+			data:    map[string]any{"Flash": map[string]string{"Kind": "error", "Message": "<i>x</i>"}},
+			want:    []string{"&lt;i&gt;x&lt;/i&gt;"},
+			notWant: []string{"<i>x</i>"},
 		},
 	})
 }
