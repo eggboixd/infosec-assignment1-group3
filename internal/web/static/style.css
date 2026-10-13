@@ -82,6 +82,14 @@ code {
 .skip-link:focus { top: 1rem; }
 
 .muted { color: var(--ink-soft); }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .inline { display: inline; }
 
 /* ---------- Header and nav ---------- */
@@ -365,7 +373,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     text-align: left;
   }
   .responsive-table td.file-name { font-size: 1.05rem; }
-  .responsive-table td.file-name::before { content: none; }
+  .responsive-table td.file-name::before,
+  .responsive-table td.actions::before { content: none; }
+  .responsive-table td.actions { justify-content: flex-end; }
 }
 
 /* ---------- Wider screens ---------- */
