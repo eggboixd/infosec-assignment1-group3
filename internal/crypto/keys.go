@@ -50,7 +50,9 @@ func WrapKey(kek, key []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("wrap key: %w", err)
 	}
-	return aead.Seal(nil, nil, key, nil), nil
+	// The nonce argument must be nil: this AEAD generates a random 96-bit
+	// nonce itself and panics if the caller supplies one.
+	return aead.Seal(nil, nil, key, nil), nil // #nosec G407 -- nonce is random, generated inside NewGCMWithRandomNonce.
 }
 
 // UnwrapKey reverses WrapKey and fails if the wrapped key was modified.

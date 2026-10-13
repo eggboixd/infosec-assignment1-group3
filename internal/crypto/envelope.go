@@ -291,12 +291,13 @@ func macHeader(meta Meta) []byte {
 	}
 	var h []byte
 	for _, f := range fields {
-		if len(f) > math.MaxUint32 {
-			// Unreachable: every field is at most 60 bytes. The check makes
-			// the uint32 conversion below provably safe.
+		// Unreachable: every field is at most 60 bytes. The check makes the
+		// uint32 conversion below provably safe. Comparing as uint64 keeps
+		// it compiling on 32-bit platforms, where MaxUint32 overflows int.
+		if uint64(len(f)) > math.MaxUint32 {
 			panic("crypto: MAC header field too long")
 		}
-		h = binary.BigEndian.AppendUint32(h, uint32(len(f)))
+		h = binary.BigEndian.AppendUint32(h, uint32(len(f))) // #nosec G115 -- bounded by the check above.
 		h = append(h, f...)
 	}
 	return h
