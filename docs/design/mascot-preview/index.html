@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mascot Style Preview · Secure Store</title>
+  <!-- Same rules as the app's CSP: no inline styles, scripts or handlers. -->
+  <link rel="stylesheet" href="mascot.css">
+  <link rel="stylesheet" href="preview.css">
+  <script src="preview.js" defer></script>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-text">
+      <p class="eyebrow">feature/frontend · design preview</p>
+      <h1>Meet the guard of your data</h1>
+      <p class="lead">
+        Three art styles for the Secure Store padlock mascot. All three use the
+        same mood classes, so whichever you pick, the pages only ever switch one
+        class on the SVG. Pick a style, a name, and we build the templates.
+      </p>
+    </div>
+    <div class="hero-mascots">
+      <div class="hero-slot"><div data-mascot="a" data-mood="smiling"></div><span>A · Mochi</span></div>
+      <div class="hero-slot"><div data-mascot="b" data-mood="smiling"></div><span>B · Sticker</span></div>
+      <div class="hero-slot"><div data-mascot="c" data-mood="smiling"></div><span>C · Keyhole guard</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Name ideas</h2>
+      <ul class="names">
+        <li><strong>Gembi</strong><span>From <em>gembok</em>, Indonesian for "padlock". Fits the UU PDP angle.</span></li>
+        <li><strong>Kunci</strong><span>Indonesian for "lock" or "key". Short and easy to say in the demo.</span></li>
+        <li><strong>Pip</strong><span>The little "click" a lock makes. A neutral English option.</span></li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Palette &amp; type</h2>
+      <ul class="swatches">
+        <li><span class="swatch swatch--mint"></span>Mint <code>#CDEFE3</code></li>
+        <li><span class="swatch swatch--lavender"></span>Lavender <code>#E3DAFF</code></li>
+        <li><span class="swatch swatch--peach"></span>Peach <code>#FFD9C7</code></li>
+        <li><span class="swatch swatch--butter"></span>Butter <code>#FFF1B8</code></li>
+        <li><span class="swatch swatch--pink"></span>Pink <code>#FFD6E5</code></li>
+        <li><span class="swatch swatch--cream"></span>Cream bg <code>#FFFAF3</code></li>
+        <li><span class="swatch swatch--ink"></span>Ink text <code>#3B3350</code></li>
+      </ul>
+      <p class="font-sample">Your data, locked up tight. 0123456789</p>
+      <p class="note">
+        The app's CSP blocks Google Fonts, so this uses a system font stack
+        (rounded where the OS has one). Self-hosting a rounded font such as
+        Nunito under <code>/static</code> is an option for later.
+      </p>
+    </section>
+
+    <section class="card demo" aria-labelledby="demo-title">
+      <h2 id="demo-title">Try it: the login guard</h2>
+      <div class="demo-grid">
+        <div class="demo-stage-wrap">
+          <div id="demo-stage" class="demo-stage"></div>
+          <p id="demo-status" class="demo-status" aria-live="polite">Suspicious: who goes there?</p>
+        </div>
+        <div class="demo-controls">
+          <fieldset class="segmented">
+            <legend>Style</legend>
+            <label><input type="radio" name="demo-style" value="a" checked> A · Mochi</label>
+            <label><input type="radio" name="demo-style" value="b"> B · Sticker</label>
+            <label><input type="radio" name="demo-style" value="c"> C · Keyhole guard</label>
+          </fieldset>
+
+          <form id="demo-form" class="demo-form" autocomplete="off" novalidate>
+            <label>Username <input id="demo-user" type="text" autocomplete="off" placeholder="anything"></label>
+            <label>Password <input id="demo-pass" type="password" autocomplete="off" placeholder="try: letmein"></label>
+            <p class="note">Nothing is sent or stored. Enter <code>letmein</code> to unlock; anything else is wrong.</p>
+            <div class="button-row">
+              <button type="submit" class="btn btn--primary">Log in</button>
+              <button type="button" id="demo-wrong" class="btn">Wrong password</button>
+              <button type="button" id="demo-right" class="btn">Correct password</button>
+            </div>
+          </form>
+
+          <fieldset class="chips">
+            <legend>Jump to a mood</legend>
+            <div id="demo-moods" class="chip-row"></div>
+          </fieldset>
+
+          <label class="toggle">
+            <input type="checkbox" id="demo-reduce">
+            Simulate <code>prefers-reduced-motion</code>
+          </label>
+          <p id="demo-os-motion" class="note"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="style-section" aria-labelledby="style-a-title">
+      <div class="style-head">
+        <h2 id="style-a-title"><span class="tag tag--mint">A</span> Mochi</h2>
+        <p>Soft rounded body, flat pastel fill, big glossy eyes, blush. No outlines. The cuddliest of the three.</p>
+      </div>
+      <div class="gallery" data-gallery="a"></div>
+    </section>
+
+    <section class="style-section" aria-labelledby="style-b-title">
+      <div class="style-head">
+        <h2 id="style-b-title"><span class="tag tag--peach">B</span> Sticker</h2>
+        <p>Thick ink outline with a white sticker border and dot eyes, like a chat sticker. Reads best at small sizes such as the nav icon.</p>
+      </div>
+      <div class="gallery" data-gallery="b"></div>
+    </section>
+
+    <section class="style-section" aria-labelledby="style-c-title">
+      <div class="style-head">
+        <h2 id="style-c-title"><span class="tag tag--lavender">C</span> Keyhole guard</h2>
+        <p>Shield-shaped lock with a guard cap, a keyhole for a nose, and a key in hand. The most "security" flavoured.</p>
+      </div>
+      <div class="gallery" data-gallery="c"></div>
+    </section>
+
+    <section class="card">
+      <h2>How it plugs into the app (after you pick)</h2>
+      <ul class="plain">
+        <li>One template partial renders the chosen SVG with <code>class="mascot mascot--&lt;mood&gt;"</code>.</li>
+        <li>Pages pick the starting mood: login/register <code>suspicious</code>, files <code>smiling</code>, empty list <code>sleepy</code>, errors <code>confused</code>.</li>
+        <li>A small static script swaps the class for focus, upload/download (htmx events) and form results.</li>
+        <li>Under reduced motion, nothing moves, but every mood keeps its face.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Preview only. Not embedded in the app binary.
+    One-shot moods (angry, unlocked) replay every few seconds in the galleries.
+  </footer>
+
+  <!-- ===== Mascot templates. preview.js clones them, so they carry no ids. ===== -->
+
+  <!-- Style A: Mochi -->
+  <template id="mascot-a">
+    <svg class="mascot mascot--a" viewBox="0 0 120 140" role="img">
+      <g class="m-figure">
+        <path class="m-shackle m-shackle-bar" d="M36 80 V44 a24 24 0 0 1 48 0 V80"/>
+        <rect class="m-body" x="16" y="56" width="88" height="74" rx="26"/>
+        <path class="m-shade" d="M16 104 H104 A26 26 0 0 1 78 130 H42 A26 26 0 0 1 16 104 Z"/>
+        <ellipse class="m-gloss" cx="34" cy="66" rx="9" ry="3.5"/>
+
+        <g class="m-v m-blush"><ellipse cx="30" cy="101" rx="7" ry="4"/><ellipse cx="90" cy="101" rx="7" ry="4"/></g>
+
+        <g class="m-v m-eyes-open">
+          <circle class="m-ink" cx="44" cy="88" r="7.5"/><circle class="m-ink" cx="76" cy="88" r="7.5"/>
+          <circle class="m-white" cx="46.5" cy="85.5" r="2.6"/><circle class="m-white" cx="78.5" cy="85.5" r="2.6"/>
+          <circle class="m-white" cx="42" cy="91" r="1.2"/><circle class="m-white" cx="74" cy="91" r="1.2"/>
+        </g>
+        <g class="m-v m-eyes-narrow">
+          <path class="m-ink-stroke" d="M35 86 H53 M67 86 H85"/>
+          <g class="m-pupils"><path class="m-ink" d="M38 86.5 a6 6 0 0 0 12 0 z"/><path class="m-ink" d="M70 86.5 a6 6 0 0 0 12 0 z"/></g>
+        </g>
+        <path class="m-v m-eyes-happy m-ink-stroke" d="M37 90 q7 -10 14 0 M69 90 q7 -10 14 0"/>
+        <path class="m-v m-eyes-closed m-ink-stroke" d="M37 87 q7 7 14 0 M69 87 q7 7 14 0"/>
+        <g class="m-v m-eyes-uneven">
+          <circle class="m-ink" cx="44" cy="88" r="8.5"/><circle class="m-white" cx="46.8" cy="85.2" r="2.8"/>
+          <circle class="m-ink" cx="76" cy="89" r="4.5"/><circle class="m-white" cx="77.5" cy="87.5" r="1.5"/>
+        </g>
+
+        <path class="m-v m-brows-sus m-ink-stroke" d="M36 76 L52 78 M68 75 Q76 69 84 73"/>
+        <path class="m-v m-brows-angry m-ink-stroke" d="M36 74 L52 80 M84 74 L68 80"/>
+        <path class="m-v m-brows-busy m-ink-stroke" d="M37 77 L51 79 M83 77 L69 79"/>
+        <path class="m-v m-brows-confused m-ink-stroke" d="M36 76 Q44 69 52 75 M68 79 L84 77"/>
+
+        <path class="m-v m-mouth-smile m-ink-stroke" d="M52 104 q8 8 16 0"/>
+        <g class="m-v m-mouth-open">
+          <path class="m-ink" d="M50 103 h20 q0 11 -10 11 q-10 0 -10 -11z"/>
+          <path class="m-tongue" d="M54 110.5 q6 -4 12 0 q-2 3.5 -6 3.5 q-4 0 -6 -3.5z"/>
+        </g>
+        <path class="m-v m-mouth-frown m-ink-stroke" d="M52 110 q8 -8 16 0"/>
+        <path class="m-v m-mouth-flat m-ink-stroke" d="M53 107 h14"/>
+        <ellipse class="m-v m-mouth-o m-ink" cx="60" cy="107" rx="3.5" ry="4.5"/>
+        <path class="m-v m-mouth-wavy m-ink-stroke" d="M49 108 q2.75 -4 5.5 0 t5.5 0 t5.5 0 t5.5 0"/>
+
+        <g class="m-hands">
+          <ellipse class="m-hand" cx="44" cy="89" rx="13" ry="10"/><ellipse class="m-hand" cx="76" cy="89" rx="13" ry="10"/>
+          <path class="m-hand-line" d="M39 82 v5 M45 81 v6 M71 81 v6 M77 82 v5"/>
+        </g>
+      </g>
+
+      <g class="m-v m-sparkles">
+        <g transform="translate(14 46)"><path class="m-spark" d="M0 -7 L1.8 -1.8 L7 0 L1.8 1.8 L0 7 L-1.8 1.8 L-7 0 L-1.8 -1.8Z"/></g>
+        <g transform="translate(106 40)"><path class="m-spark" d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5Z"/></g>
+        <g transform="translate(108 122)"><path class="m-spark" d="M0 -5 L1.3 -1.3 L5 0 L1.3 1.3 L0 5 L-1.3 1.3 L-5 0 L-1.3 -1.3Z"/></g>
+      </g>
+      <g class="m-v m-zzz">
+        <text class="m-z m-z1" x="90" y="50">z</text>
+        <text class="m-z m-z2" x="98" y="36">z</text>
+        <text class="m-z m-z3" x="106" y="20">Z</text>
+      </g>
+      <text class="m-v m-question" x="94" y="46">?</text>
+      <path class="m-v m-sweat" d="M100 62 q6 9 0 13 q-6 -4 0 -13z"/>
+      <g transform="translate(16 46)">
+        <g class="m-v m-gear"><circle class="m-gear-teeth" r="7"/><circle class="m-gear-hub" r="5"/><circle class="m-white" r="2"/></g>
+      </g>
+    </svg>
+  </template>
+
+  <!-- Style B: Sticker -->
+  <template id="mascot-b">
+    <svg class="mascot mascot--b" viewBox="0 0 120 140" role="img">
+      <g class="m-figure">
+        <path class="m-shackle m-sticker-line" d="M36 80 V44 a24 24 0 0 1 48 0 V80"/>
+        <rect class="m-sticker-fill" x="18" y="58" width="84" height="70" rx="20"/>
+        <g class="m-shackle">
+          <path class="m-shackle-outline" d="M36 80 V44 a24 24 0 0 1 48 0 V80"/>
+          <path class="m-shackle-bar" d="M36 80 V44 a24 24 0 0 1 48 0 V80"/>
+        </g>
+        <rect class="m-body m-outlined" x="18" y="58" width="84" height="70" rx="20"/>
+        <path class="m-gloss-line" d="M27 76 V71 q0 -5 5 -5 h6"/>
+
+        <g class="m-v m-blush"><ellipse cx="32" cy="101" rx="6.5" ry="3.5"/><ellipse cx="88" cy="101" rx="6.5" ry="3.5"/></g>
+
+        <g class="m-v m-eyes-open">
+          <circle class="m-ink" cx="45" cy="89" r="5"/><circle class="m-ink" cx="75" cy="89" r="5"/>
+          <circle class="m-white" cx="46.6" cy="87.4" r="1.5"/><circle class="m-white" cx="76.6" cy="87.4" r="1.5"/>
+        </g>
+        <g class="m-v m-eyes-narrow">
+          <path class="m-ink-stroke" d="M37 87 H53 M67 87 H83"/>
+          <g class="m-pupils"><path class="m-ink" d="M40 88 a5 5 0 0 0 10 0 z"/><path class="m-ink" d="M70 88 a5 5 0 0 0 10 0 z"/></g>
+        </g>
+        <path class="m-v m-eyes-happy m-ink-stroke" d="M39 91 q6 -9 12 0 M69 91 q6 -9 12 0"/>
+        <path class="m-v m-eyes-closed m-ink-stroke" d="M39 88 q6 6 12 0 M69 88 q6 6 12 0"/>
+        <g class="m-v m-eyes-uneven">
+          <circle class="m-ink" cx="45" cy="89" r="6.5"/><circle class="m-white" cx="47" cy="87" r="1.8"/>
+          <circle class="m-ink" cx="75" cy="90" r="3.5"/>
+        </g>
+
+        <path class="m-v m-brows-sus m-ink-stroke" d="M38 78 L52 80 M68 77 Q75 71 82 75"/>
+        <path class="m-v m-brows-angry m-ink-stroke" d="M38 76 L52 82 M82 76 L68 82"/>
+        <path class="m-v m-brows-busy m-ink-stroke" d="M39 79 L51 81 M81 79 L69 81"/>
+        <path class="m-v m-brows-confused m-ink-stroke" d="M38 78 Q45 72 52 77 M68 81 L82 79"/>
+
+        <path class="m-v m-mouth-smile m-ink-stroke" d="M54 104 q6 6 12 0"/>
+        <g class="m-v m-mouth-open">
+          <path class="m-ink m-outlined" d="M52 103 h16 q0 10 -8 10 q-8 0 -8 -10z"/>
+          <path class="m-tongue" d="M55 109.5 q5 -3.5 10 0 q-2 2.8 -5 2.8 q-3 0 -5 -2.8z"/>
+        </g>
+        <path class="m-v m-mouth-frown m-ink-stroke" d="M54 109 q6 -6 12 0"/>
+        <path class="m-v m-mouth-flat m-ink-stroke" d="M54 106 h12"/>
+        <ellipse class="m-v m-mouth-o m-ink" cx="60" cy="106" rx="3.2" ry="4"/>
+        <path class="m-v m-mouth-wavy m-ink-stroke" d="M50 107 q2.5 -3.5 5 0 t5 0 t5 0 t5 0"/>
+
+        <g class="m-hands">
+          <ellipse class="m-hand" cx="46" cy="90" rx="13.5" ry="11"/><ellipse class="m-hand" cx="74" cy="90" rx="13.5" ry="11"/>
+          <path class="m-hand-line" d="M40 82 v6 M47 81 v7 M67 81 v7 M74 82 v6"/>
+        </g>
+      </g>
+
+      <g class="m-v m-sparkles">
+        <g transform="translate(13 46)"><path class="m-spark" d="M0 -7 L1.8 -1.8 L7 0 L1.8 1.8 L0 7 L-1.8 1.8 L-7 0 L-1.8 -1.8Z"/></g>
+        <g transform="translate(107 40)"><path class="m-spark" d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5Z"/></g>
+        <g transform="translate(110 122)"><path class="m-spark" d="M0 -5 L1.3 -1.3 L5 0 L1.3 1.3 L0 5 L-1.3 1.3 L-5 0 L-1.3 -1.3Z"/></g>
+      </g>
+      <g class="m-v m-zzz">
+        <text class="m-z m-z1" x="92" y="50">z</text>
+        <text class="m-z m-z2" x="100" y="36">z</text>
+        <text class="m-z m-z3" x="108" y="20">Z</text>
+      </g>
+      <text class="m-v m-question" x="96" y="46">?</text>
+      <path class="m-v m-sweat" d="M102 60 q6 9 0 13 q-6 -4 0 -13z"/>
+      <g transform="translate(14 46)">
+        <g class="m-v m-gear"><circle class="m-gear-teeth" r="7"/><circle class="m-gear-hub" r="5"/><circle class="m-white" r="2"/></g>
+      </g>
+    </svg>
+  </template>
+
+  <!-- Style C: Keyhole guard -->
+  <template id="mascot-c">
+    <svg class="mascot mascot--c" viewBox="0 0 120 140" role="img">
+      <g class="m-figure">
+        <g class="m-shackle">
+          <path class="m-shackle-bar" d="M36 80 V44 a24 24 0 0 1 48 0 V80"/>
+          <path class="m-cap" d="M41 24 Q41 7 60 7 Q79 7 79 24 Z"/>
+          <rect class="m-cap-brim" x="34" y="22" width="52" height="6" rx="3"/>
+          <path class="m-cap-star" d="M60 10.5 l1.8 3.6 4 0.6 -2.9 2.8 0.7 4 -3.6 -1.9 -3.6 1.9 0.7 -4 -2.9 -2.8 4 -0.6z"/>
+        </g>
+        <path class="m-body" d="M18 58 H102 V92 C102 116 84 128 60 136 C36 128 18 116 18 92 Z"/>
+        <path class="m-shade" d="M60 58 H102 V92 C102 116 84 128 60 136 Z"/>
+
+        <g class="m-v m-blush"><ellipse cx="31" cy="93" rx="6" ry="3.5"/><ellipse cx="89" cy="93" rx="6" ry="3.5"/></g>
+
+        <g class="m-v m-eyes-open">
+          <rect class="m-ink" x="39" y="72" width="10" height="15" rx="5"/><rect class="m-ink" x="71" y="72" width="10" height="15" rx="5"/>
+          <circle class="m-white" cx="46" cy="76" r="2"/><circle class="m-white" cx="78" cy="76" r="2"/>
+        </g>
+        <g class="m-v m-eyes-narrow">
+          <path class="m-ink-stroke" d="M37 78 H51 M69 78 H83"/>
+          <g class="m-pupils"><path class="m-ink" d="M39 78.5 h10 v1 a5 5 0 0 1 -10 0z"/><path class="m-ink" d="M71 78.5 h10 v1 a5 5 0 0 1 -10 0z"/></g>
+        </g>
+        <path class="m-v m-eyes-happy m-ink-stroke" d="M38 82 q6 -9 12 0 M70 82 q6 -9 12 0"/>
+        <path class="m-v m-eyes-closed m-ink-stroke" d="M38 79 q6 6 12 0 M70 79 q6 6 12 0"/>
+        <g class="m-v m-eyes-uneven">
+          <rect class="m-ink" x="38" y="70" width="12" height="18" rx="6"/><circle class="m-white" cx="46.5" cy="74.5" r="2.2"/>
+          <circle class="m-ink" cx="76" cy="80" r="4"/>
+        </g>
+
+        <path class="m-v m-brows-sus m-ink-stroke" d="M37 66 L51 68 M69 65 Q76 59 83 63"/>
+        <path class="m-v m-brows-angry m-ink-stroke" d="M37 64 L51 70 M83 64 L69 70"/>
+        <path class="m-v m-brows-busy m-ink-stroke" d="M38 67 L50 69 M82 67 L70 69"/>
+        <path class="m-v m-brows-confused m-ink-stroke" d="M37 66 Q44 60 51 65 M69 69 L83 67"/>
+
+        <g class="m-keyhole"><circle cx="60" cy="96" r="4.5"/><path d="M57.5 98 L56 106 H64 L62.5 98 Z"/></g>
+
+        <path class="m-v m-mouth-smile m-ink-stroke" d="M53 115 q7 6 14 0"/>
+        <g class="m-v m-mouth-open">
+          <path class="m-ink" d="M51 113 h18 q0 9 -9 9 q-9 0 -9 -9z"/>
+          <path class="m-tongue" d="M55 119 q5 -3.5 10 0 q-2 3 -5 3 q-3 0 -5 -3z"/>
+        </g>
+        <path class="m-v m-mouth-frown m-ink-stroke" d="M53 120 q7 -6 14 0"/>
+        <path class="m-v m-mouth-flat m-ink-stroke" d="M54 117 h12"/>
+        <ellipse class="m-v m-mouth-o m-ink" cx="60" cy="117" rx="3" ry="3.5"/>
+        <path class="m-v m-mouth-wavy m-ink-stroke" d="M50 117 q2.5 -3.5 5 0 t5 0 t5 0 t5 0"/>
+
+        <g class="m-arms-rest">
+          <circle class="m-key" cx="108" cy="85" r="5.5"/>
+          <path class="m-key" d="M108 90.5 V112 M108 105 h4 M108 110.5 h4"/>
+          <ellipse class="m-hand" cx="16" cy="100" rx="6" ry="8"/>
+          <ellipse class="m-hand" cx="104" cy="100" rx="6" ry="8"/>
+        </g>
+        <g class="m-hands">
+          <ellipse class="m-hand" cx="44" cy="79" rx="12" ry="10"/><ellipse class="m-hand" cx="76" cy="79" rx="12" ry="10"/>
+          <path class="m-hand-line" d="M39 72 v5 M45 71 v6 M71 71 v6 M77 72 v5"/>
+        </g>
+      </g>
+
+      <g class="m-v m-sparkles">
+        <g transform="translate(12 46)"><path class="m-spark" d="M0 -7 L1.8 -1.8 L7 0 L1.8 1.8 L0 7 L-1.8 1.8 L-7 0 L-1.8 -1.8Z"/></g>
+        <g transform="translate(106 40)"><path class="m-spark" d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5Z"/></g>
+        <g transform="translate(12 126)"><path class="m-spark" d="M0 -5 L1.3 -1.3 L5 0 L1.3 1.3 L0 5 L-1.3 1.3 L-5 0 L-1.3 -1.3Z"/></g>
+      </g>
+      <g class="m-v m-zzz">
+        <text class="m-z m-z1" x="90" y="50">z</text>
+        <text class="m-z m-z2" x="98" y="36">z</text>
+        <text class="m-z m-z3" x="106" y="20">Z</text>
+      </g>
+      <text class="m-v m-question" x="94" y="46">?</text>
+      <path class="m-v m-sweat" d="M96 60 q6 9 0 13 q-6 -4 0 -13z"/>
+      <g transform="translate(16 46)">
+        <g class="m-v m-gear"><circle class="m-gear-teeth" r="7"/><circle class="m-gear-hub" r="5"/><circle class="m-white" r="2"/></g>
+      </g>
+    </svg>
+  </template>
+</body>
+</html>
