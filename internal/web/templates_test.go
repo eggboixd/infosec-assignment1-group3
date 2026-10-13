@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
+	"github.com/eggboixd/infosec-assignment1-group3/internal/benchmark"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/crypto"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/files"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
@@ -305,6 +306,26 @@ func TestProfileTemplate(t *testing.T) {
 			page: "profile.html",
 			data: map[string]any{},
 			want: []string{`method="post" action="/profile"`, `data-gembi-busy="Encrypting…"`},
+		},
+	})
+}
+
+func TestBenchmarksTemplate(t *testing.T) {
+	runPageCases(t, []pageCase{
+		{
+			name:    "no records: sleepy empty state",
+			page:    "benchmarks.html",
+			data:    map[string]any{},
+			mood:    "sleepy",
+			want:    []string{"No measurements yet.", `href="/benchmarks/export.csv"`},
+			notWant: []string{"<table"},
+		},
+		{
+			name: "with records: smiling, table shown",
+			page: "benchmarks.html",
+			data: map[string]any{"Records": []benchmark.Record{{Algorithm: crypto.AES, Operation: benchmark.OpEncrypt}}},
+			mood: "smiling",
+			want: []string{"<table", "Crypto (ms)"},
 		},
 	})
 }

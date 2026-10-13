@@ -1,10 +1,36 @@
 {{define "benchmarks.html"}}{{template "header" .}}
-<h1>Benchmarks</h1>
-{{/* TODO(feature/benchmark): render per-algorithm averages and the raw
-     records from .Records. */}}
-<p><a href="/benchmarks/export.csv">Export CSV</a></p>
-<table>
-  <thead><tr><th>Time</th><th>Algorithm</th><th>Operation</th><th>Bytes</th><th>Crypto (ms)</th><th>Total (ms)</th></tr></thead>
-  <tbody></tbody>
-</table>
+{{/* Data: .Records ([]benchmark.Record). Gembi is smiling when there are
+     measurements and sleepy when there are none. */}}
+<section class="card">
+  <div class="page-head">
+    <div class="gembi" data-gembi data-base-mood="{{if .Records}}smiling{{else}}sleepy{{end}}">
+      {{- if .Records}}{{template "mascot" "smiling"}}{{else}}{{template "mascot" "sleepy"}}{{end -}}
+    </div>
+    <div>
+      <h1>Benchmarks</h1>
+      <p>Running time of every encryption, decryption and download, per algorithm. Download the same file many times to collect data for the report.</p>
+    </div>
+  </div>
+</section>
+
+<section class="card" aria-labelledby="records-title">
+  <div class="section-head">
+    <h2 id="records-title">Measurements</h2>
+    <a class="btn btn--small" href="/benchmarks/export.csv">Export CSV</a>
+  </div>
+  {{/* TODO(feature/benchmark): render per-algorithm averages and the raw
+       records from .Records. Give each <td> a data-label (the column name)
+       so the table turns into cards on phones. */}}
+  {{if .Records}}
+  <table class="responsive-table">
+    <thead><tr><th scope="col">Time</th><th scope="col">Algorithm</th><th scope="col">Operation</th><th scope="col" class="num">Bytes</th><th scope="col" class="num">Crypto (ms)</th><th scope="col" class="num">Total (ms)</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  {{else}}
+  <div class="empty-state">
+    <strong>No measurements yet.</strong>
+    <span>Upload or download a file and Gembi will time how long each cipher takes.</span>
+  </div>
+  {{end}}
+</section>
 {{template "footer" .}}{{end}}
