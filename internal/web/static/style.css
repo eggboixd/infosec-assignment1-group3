@@ -289,7 +289,9 @@ button:disabled { opacity: 0.7; cursor: progress; }
 }
 .auth-card { text-align: center; padding-top: 1.5rem; }
 .auth-card .gembi { margin: 0 auto 0.75rem; }
-.auth-card .stack { text-align: left; margin: 1rem auto 0; }
+.auth-card .stack,
+.auth-card .form-errors { text-align: left; }
+.auth-card .stack { margin: 1rem auto 0; }
 .auth-card .btn--primary { width: 100%; margin-top: 0.25rem; }
 .auth-switch { margin-top: 1rem; text-align: center; }
 
@@ -382,7 +384,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     color: var(--ink-soft);
     text-align: left;
   }
-  .responsive-table td.file-name { font-size: 1.05rem; }
+  .responsive-table td.file-name { font-size: 1.05rem; text-align: left; }
   .responsive-table td.file-name::before,
   .responsive-table td.actions::before { content: none; }
   .responsive-table td.actions { justify-content: flex-end; }
