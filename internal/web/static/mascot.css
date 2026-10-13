@@ -1,0 +1,264 @@
+/* Gembi, the padlock mascot (style B "Sticker").
+ *
+ * The SVG is in templates/mascot.html. Every part has a class (.m-shackle,
+ * .m-eyes-open, .m-mouth-smile, ...) and the mood is one class on the <svg>
+ * (mascot--suspicious, mascot--happy, ...). The mood rules below only decide
+ * which parts are visible and which animation runs, so pages and mascot.js
+ * never touch the parts themselves: they swap one class.
+ *
+ * Animations only use transform and opacity, which the browser can run
+ * without re-laying out the page. With prefers-reduced-motion every
+ * animation and transition is switched off, but each mood keeps its static
+ * expression (for example "unlocked" still shows the shackle open).
+ */
+
+.mascot {
+  --m-ink: #3b3350;
+  --m-body: #ffd3bf;
+  --m-shackle: #ffe38f;
+  --m-hand: #ffbfa5;
+  --m-blush: #ffb3c7;
+  --m-angry: #ff8fa3;
+  --m-tongue: #ff9db3;
+  --m-spark: #ffc94d;
+  --m-sweat: #8fd3f4;
+  --m-gear: #9c8ce0;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible; /* the shackle and the "z z" may leave the viewBox */
+  filter: drop-shadow(0 3px 2px rgba(59, 51, 80, 0.18));
+}
+
+/* Size wrappers. */
+.gembi { flex: none; }
+.gembi--nav { width: 28px; }
+.gembi--md { width: 96px; }
+.gembi--lg { width: 132px; }
+
+/* ---------- Parts ---------- */
+
+.m-body { fill: var(--m-body); stroke: var(--m-ink); stroke-width: 4; stroke-linejoin: round; }
+.m-ink { fill: var(--m-ink); }
+.m-white { fill: #fff; }
+.m-blush { fill: var(--m-blush); }
+.m-tongue { fill: var(--m-tongue); }
+.m-hand { fill: var(--m-hand); stroke: var(--m-ink); stroke-width: 4; }
+.m-sweat { fill: var(--m-sweat); }
+.m-spark { fill: var(--m-spark); }
+.m-mouth-open .m-ink { stroke: var(--m-ink); stroke-width: 4; stroke-linejoin: round; }
+
+.m-ink-stroke,
+.m-hand-line,
+.m-gloss-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.m-ink-stroke { stroke: var(--m-ink); stroke-width: 4.5; }
+.m-hand-line { stroke: var(--m-ink); stroke-width: 3; }
+.m-gloss-line { stroke: #fff; stroke-width: 3.5; opacity: 0.8; }
+
+/* Sticker border: the white silhouettes are drawn first and the
+   ink-outlined parts on top, so the white edge wraps the whole figure. */
+.m-sticker-line { fill: none; stroke: #fff; stroke-width: 25; stroke-linecap: round; }
+.m-sticker-fill { fill: #fff; stroke: #fff; stroke-width: 12; stroke-linejoin: round; }
+.m-shackle-outline { fill: none; stroke: var(--m-ink); stroke-width: 16; stroke-linecap: round; }
+.m-shackle-bar { fill: none; stroke: var(--m-shackle); stroke-width: 8; stroke-linecap: round; }
+
+.m-gear-teeth {
+  fill: none;
+  stroke: var(--m-gear);
+  stroke-width: 5;
+  stroke-dasharray: 3.3 2.2; /* the dashes of a thick ring look like cog teeth */
+}
+.m-gear-hub { fill: var(--m-gear); }
+
+.mascot text {
+  font-family: inherit;
+  font-weight: 800;
+  fill: var(--m-ink);
+}
+.m-question { font-size: 26px; }
+.m-z1 { font-size: 10px; }
+.m-z2 { font-size: 13px; }
+.m-z3 { font-size: 16px; }
+
+/* ---------- Mood system ---------- */
+
+/* Pivots in viewBox units. */
+.m-figure {
+  transform-box: view-box;
+  transform-origin: 60px 132px; /* bottom centre: bounce, tilt, breathe */
+  transition: transform 0.3s ease;
+}
+.m-shackle {
+  transform-box: view-box;
+  transform-origin: 36px 70px; /* left leg: the shackle swivels open on it */
+  transition: transform 0.3s ease;
+}
+
+/* Parts that only some moods show (.m-v = "variable"). */
+.m-v { opacity: 0; transition: opacity 0.18s ease; }
+
+.mascot--suspicious :is(.m-eyes-narrow, .m-brows-sus, .m-mouth-flat),
+.mascot--covering :is(.m-eyes-open, .m-mouth-o, .m-blush),
+.mascot--angry :is(.m-eyes-open, .m-brows-angry, .m-mouth-frown, .m-blush),
+.mascot--unlocked :is(.m-eyes-happy, .m-mouth-open, .m-blush, .m-sparkles),
+.mascot--smiling :is(.m-eyes-open, .m-mouth-smile, .m-blush),
+.mascot--busy :is(.m-eyes-open, .m-brows-busy, .m-mouth-flat, .m-sweat, .m-gear),
+.mascot--happy :is(.m-eyes-happy, .m-mouth-open, .m-blush, .m-sparkles),
+.mascot--sleepy :is(.m-eyes-closed, .m-mouth-o, .m-zzz),
+.mascot--confused :is(.m-eyes-uneven, .m-brows-confused, .m-mouth-wavy, .m-question) {
+  opacity: 1;
+}
+
+/* suspicious: side-eye */
+.mascot--suspicious .m-pupils { animation: m-side-eye 3.6s ease-in-out infinite; }
+
+/* covering: paws slide up over the eyes while a password field has focus */
+.m-hands {
+  opacity: 0;
+  transform: translateY(36px);
+  transition: transform 0.32s cubic-bezier(0.3, 1.4, 0.5, 1), opacity 0.2s ease;
+}
+.mascot--covering .m-hands { opacity: 1; transform: none; }
+
+/* angry: red cheeks + one shake. "both" keeps the animation attached after
+   it ends, so mascot.js can replay it by re-adding the class. */
+.mascot--angry .m-blush { fill: var(--m-angry); }
+.mascot--angry .m-figure { animation: m-shake 0.5s ease-in-out both; }
+
+/* unlocked: shackle pops open, two happy bounces (plays once) */
+.mascot--unlocked .m-shackle {
+  transform: translateY(-12px) rotate(-16deg);
+  animation: m-unlock 0.7s cubic-bezier(0.3, 1.3, 0.5, 1) both;
+}
+.mascot--unlocked .m-figure { animation: m-bounce 0.6s ease-in-out 0.25s 2 both; }
+
+/* smiling: blink now and then */
+.mascot--smiling .m-eyes-open {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: m-blink 4.2s ease-in-out infinite;
+}
+
+/* busy: locking it up - shackle clamps, body wiggles, gear spins */
+.mascot--busy .m-figure { animation: m-wiggle 0.9s ease-in-out infinite; }
+.mascot--busy .m-shackle { animation: m-clamp 1.2s ease-in-out infinite; }
+.mascot--busy .m-sweat { animation: m-drip 1.4s ease-in infinite; }
+.mascot--busy .m-gear {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: m-spin 2s linear infinite;
+}
+
+/* happy: gentle hop + twinkling sparkles */
+.mascot--happy .m-figure { animation: m-hop 1.2s ease-in-out infinite; }
+.m-spark { transform-box: fill-box; transform-origin: center; }
+:is(.mascot--happy, .mascot--unlocked) .m-spark { animation: m-twinkle 1.4s ease-in-out infinite; }
+.m-sparkles g:nth-child(2) .m-spark { animation-delay: 0.45s; }
+.m-sparkles g:nth-child(3) .m-spark { animation-delay: 0.9s; }
+
+/* sleepy: slow breathing + floating z's */
+.mascot--sleepy .m-figure { animation: m-breathe 3.2s ease-in-out infinite; }
+.m-z { transform-box: fill-box; }
+.mascot--sleepy .m-z { animation: m-float-z 2.4s ease-out infinite; }
+.mascot--sleepy .m-z2 { animation-delay: 0.8s; }
+.mascot--sleepy .m-z3 { animation-delay: 1.6s; }
+
+/* confused: head tilt + bobbing question mark */
+.mascot--confused .m-figure { transform: rotate(-7deg); }
+.mascot--confused .m-question { animation: m-bob 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot,
+  .mascot * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ---------- Keyframes ---------- */
+
+@keyframes m-side-eye {
+  0%, 20%, 100% { transform: translateX(0); }
+  30%, 50% { transform: translateX(-3px); }
+  60%, 80% { transform: translateX(3px); }
+}
+
+@keyframes m-shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-7px) rotate(-3deg); }
+  30% { transform: translateX(6px) rotate(3deg); }
+  45% { transform: translateX(-5px) rotate(-2deg); }
+  60% { transform: translateX(4px) rotate(1deg); }
+  75% { transform: translateX(-2px); }
+}
+
+@keyframes m-unlock {
+  0% { transform: none; }
+  45% { transform: translateY(-15px); }
+  100% { transform: translateY(-12px) rotate(-16deg); }
+}
+
+@keyframes m-bounce {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  20% { transform: translateY(0) scale(1.06, 0.94); }
+  50% { transform: translateY(-10px) scale(0.97, 1.03); }
+  80% { transform: translateY(0) scale(1.03, 0.97); }
+}
+
+@keyframes m-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+
+@keyframes m-wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+@keyframes m-clamp {
+  0%, 30%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-7px); }
+  58% { transform: translateY(1px); }
+  66% { transform: translateY(0); }
+}
+
+@keyframes m-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes m-drip {
+  0% { transform: translateY(-2px); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(9px); opacity: 0; }
+}
+
+@keyframes m-hop {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes m-twinkle {
+  0%, 100% { transform: scale(0.6); opacity: 0.4; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes m-breathe {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.03, 0.97); }
+}
+
+@keyframes m-float-z {
+  0% { transform: translate(0, 4px); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(4px, -8px); opacity: 0; }
+}
+
+@keyframes m-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
