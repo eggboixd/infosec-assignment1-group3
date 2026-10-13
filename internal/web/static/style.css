@@ -1,35 +1,380 @@
-/* Minimal base styles. TODO(feature/frontend): extend. */
+/* Secure Store theme: soft pastels, rounded cards, Nunito.
+ * Everything is in this file (and mascot.css) because the CSP forbids
+ * inline styles. Mobile first; wider layouts are added with min-width queries.
+ */
+
+/* Nunito variable font (weights 200-1000), self-hosted: the CSP only allows
+   same-origin fonts. Licence: /static/fonts/OFL.txt. */
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url("/static/fonts/nunito-latin-wght-normal.woff2") format("woff2");
+}
+
+:root {
+  --cream: #fffaf3;
+  --card: #ffffff;
+  --ink: #3b3350;
+  --ink-soft: #625a78;
+  --line: #efe6da;
+  --mint: #cdefe3;
+  --lavender: #e3daff;
+  --peach: #ffd9c7;
+  --butter: #fff1b8;
+  --pink: #ffd6e5;
+  --accent: #6550c4;
+  --accent-soft: #efeaff;
+  --danger: #b4234a;
+  --danger-soft: #ffe3ea;
+  --success: #1f7a55;
+  --success-soft: #dff5ea;
+  --radius: 20px;
+  --radius-sm: 12px;
+  --shadow: 0 6px 20px rgba(59, 51, 80, 0.08);
+  --font: "Nunito", ui-rounded, "Segoe UI", system-ui, sans-serif;
+}
+
 *, *::before, *::after { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
-  color: #1f2328;
-  background: #ffffff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--cream);
 }
+
+h1, h2, h3 { line-height: 1.2; margin: 0 0 0.5rem; font-weight: 800; }
+h1 { font-size: clamp(1.6rem, 5vw, 2.1rem); }
+h2 { font-size: 1.25rem; }
+p { margin: 0 0 0.75rem; }
+p:last-child { margin-bottom: 0; }
+
+a { color: var(--accent); text-underline-offset: 0.15em; }
+a:hover { text-decoration-thickness: 2px; }
+
+code {
+  font-size: 0.9em;
+  background: var(--accent-soft);
+  padding: 0.05rem 0.35rem;
+  border-radius: 6px;
+}
+
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  padding: 0.5rem 1rem;
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  z-index: 10;
+}
+.skip-link:focus { top: 1rem; }
+
+.muted { color: var(--ink-soft); }
+.inline { display: inline; }
+
+/* ---------- Header and nav ---------- */
 
 .site-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #d0d7de;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 16px;
+  background: var(--card);
+  border-bottom: 2px solid var(--line);
 }
 
-.site-header nav { display: flex; gap: 1rem; align-items: center; }
-.brand { font-weight: 600; text-decoration: none; color: inherit; }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: inherit;
+  text-decoration: none;
+}
 
-main { max-width: 60rem; margin: 0 auto; padding: 1rem; }
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+.site-nav a {
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+.site-nav a:hover { background: var(--accent-soft); }
+.site-nav a[aria-current="page"] { background: var(--lavender); }
+.user-chip {
+  margin-left: 0.25rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: var(--butter);
+  font-size: 0.9rem;
+  font-weight: 700;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-.stack { display: grid; gap: 0.75rem; max-width: 28rem; }
-.stack label { display: grid; gap: 0.25rem; }
-.inline { display: inline; }
+/* ---------- Page layout ---------- */
 
-input, select, textarea, button { font: inherit; padding: 0.4rem 0.5rem; }
+main {
+  flex: 1;
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.25rem 16px 2rem;
+  display: grid;
+  gap: 1.25rem;
+  align-content: start;
+}
 
-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
-th, td { text-align: left; padding: 0.4rem; border-bottom: 1px solid #d0d7de; }
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem;
+  min-width: 0;
+}
 
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.page-head .gembi { width: 76px; }
+.page-head h1 { margin-bottom: 0.25rem; }
+.page-head p { color: var(--ink-soft); }
+
+.site-footer {
+  padding: 1rem 16px 1.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+/* ---------- Forms ---------- */
+
+.stack { display: grid; gap: 0.9rem; max-width: 30rem; }
+.stack label { display: grid; gap: 0.3rem; font-weight: 700; }
+.hint { font-size: 0.85rem; font-weight: 400; color: var(--ink-soft); }
+
+input, select, textarea {
+  font: inherit;
+  font-weight: 400;
+  color: var(--ink);
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+input[type="file"] { padding: 0.45rem; background: var(--cream); }
+textarea { min-height: 5.5rem; resize: vertical; }
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.btn,
+button {
+  font: inherit;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.2rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover, button:hover { border-color: var(--accent); }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn--primary:hover { background: #5641b0; border-color: #5641b0; }
+.btn--ghost { background: transparent; }
+.btn--danger { color: var(--danger); }
+.btn--danger:hover { border-color: var(--danger); background: var(--danger-soft); }
+.btn--small { padding: 0.25rem 0.75rem; font-size: 0.88rem; }
+button:disabled { opacity: 0.7; cursor: progress; }
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.6rem;
+}
+.inline-form label { display: grid; gap: 0.3rem; font-weight: 700; }
+.inline-form select { width: auto; min-width: 12rem; }
+
+/* ---------- Messages ---------- */
+
+.flash {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+.flash--success { background: var(--success-soft); color: var(--success); }
+.flash--error { background: var(--danger-soft); color: var(--danger); }
+.flash-close {
+  padding: 0 0.5rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.form-errors {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 700;
+}
+.form-errors ul { margin: 0; padding-left: 1.1rem; }
+
+/* ---------- Login / register ---------- */
+
+.auth-wrap {
+  width: 100%;
+  max-width: 26rem;
+  margin: 0 auto;
+}
+.auth-card { text-align: center; padding-top: 1.5rem; }
+.auth-card .gembi { margin: 0 auto 0.75rem; }
+.auth-card .stack { text-align: left; margin: 1rem auto 0; }
+.auth-card .btn--primary { width: 100%; margin-top: 0.25rem; }
+.auth-switch { margin-top: 1rem; text-align: center; }
+
+/* ---------- Empty and error states ---------- */
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--ink-soft);
+}
+.empty-state strong { font-size: 1.1rem; color: var(--ink); }
+
+.error-page { text-align: center; padding: 2rem 1.25rem; }
+.error-page .gembi { margin: 0 auto 1rem; }
+.error-code {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  padding: 0.15rem 0.8rem;
+  border-radius: 999px;
+  background: var(--butter);
+  font-weight: 800;
+}
+
+/* ---------- Tables ---------- */
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 2px solid var(--line); vertical-align: middle; }
+th { font-size: 0.85rem; color: var(--ink-soft); font-weight: 800; }
+tbody tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.file-name { font-weight: 700; overflow-wrap: anywhere; }
+
+.kind {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  background: var(--lavender);
+  white-space: nowrap;
+}
+.kind--idcard { background: var(--peach); }
+.kind--document { background: var(--mint); }
+.kind--video { background: var(--butter); }
+
+.alg-links { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.alg-links a {
+  padding: 0.15rem 0.6rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+.alg-links a:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+/* Phones: each table row becomes a small card, labelled from data-label. */
+@media (max-width: 600px) {
+  .responsive-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .responsive-table tr {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.8rem 0;
+    border-bottom: 2px solid var(--line);
+  }
+  .responsive-table tbody tr:last-child { border-bottom: 0; }
+  .responsive-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0;
+    border: 0;
+    text-align: right;
+  }
+  .responsive-table td::before {
+    content: attr(data-label);
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--ink-soft);
+    text-align: left;
+  }
+  .responsive-table td.file-name { font-size: 1.05rem; }
+  .responsive-table td.file-name::before { content: none; }
+}
+
+/* ---------- Wider screens ---------- */
+
+@media (min-width: 700px) {
+  .card { padding: 1.5rem 1.75rem; }
+  .page-head .gembi { width: 96px; }
+}
+
+/* htmx request indicators (htmx's own inline styles are disabled in layout.html). */
 .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }

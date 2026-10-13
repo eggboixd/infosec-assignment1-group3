@@ -1,5 +1,14 @@
 {{/* Shared page chrome. Pages call {{template "header" .}} and {{template "footer" .}}.
-     TODO(feature/frontend): build out navigation and flash messages. */}}
+
+     Data any page may pass (all optional; a missing key renders nothing):
+       .Title  page title
+       .User   the logged-in *auth.User; shows the nav
+       .Flash  one message with .Kind ("success", "error" or "info") and .Message.
+               Keeping it across the redirect after a POST needs sessions:
+               TODO(feature/auth): set .Flash from a one-time session value.
+
+     All CSS and JS are external files: the CSP forbids inline styles,
+     scripts and event handlers. */}}
 {{define "header"}}<!doctype html>
 <html lang="en">
 <head>
@@ -7,28 +16,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
   <title>{{if .Title}}{{.Title}} · {{end}}Secure Store</title>
+  <link rel="preload" href="/static/fonts/nunito-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/mascot.css">
   <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js"
           integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
           crossorigin="anonymous"></script>
+  <script src="/static/app.js" defer></script>
+  <script src="/static/mascot.js" defer></script>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
-    <a class="brand" href="/">Secure Store</a>
+    <a class="brand" href="/"><span class="gembi gembi--nav">{{template "mascot" "smiling"}}</span>Secure Store</a>
     {{if .User}}
-    <nav>
+    <nav class="site-nav" aria-label="Main">
       <a href="/files">Files</a>
-      <a href="/profile">Profile</a>
+      <a href="/profile">Private data</a>
       <a href="/benchmarks">Benchmarks</a>
-      <form method="post" action="/logout" class="inline"><button type="submit">Log out</button></form>
+      <span class="user-chip" title="Logged in as {{.User.Username}}">{{.User.Username}}</span>
+      <form method="post" action="/logout" class="inline"><button type="submit" class="btn--ghost btn--small">Log out</button></form>
     </nav>
     {{end}}
   </header>
-  <main>
+  <main id="main">
+  {{with .Flash}}
+  <div class="flash flash--{{.Kind}}" role="status">
+    <p>{{.Message}}</p>
+    <button type="button" class="flash-close" data-dismiss aria-label="Dismiss message">×</button>
+  </div>
+  {{end}}
 {{end}}
 
 {{define "footer"}}
   </main>
+  <footer class="site-footer">
+    Gembi keeps every item encrypted three times: AES-256, DES and RC4.
+  </footer>
 </body>
 </html>
 {{end}}
