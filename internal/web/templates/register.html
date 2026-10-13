@@ -1,10 +1,34 @@
 {{define "register.html"}}{{template "header" .}}
-<h1>Register</h1>
-{{/* TODO(feature/frontend): show validation errors from .Errors. */}}
-<form method="post" action="/register" class="stack">
-  <label>Username <input name="username" autocomplete="username" required minlength="3" maxlength="32"></label>
-  <label>Password <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
-  <label>Confirm password <input name="confirm" type="password" autocomplete="new-password" required></label>
-  <button type="submit">Create account</button>
-</form>
+{{/* Data: .Errors (optional; a slice or map of messages), .Username (optional,
+     refills the field). Same Gembi behaviour as login.html; both password
+     fields make it cover its eyes. */}}
+<div class="auth-wrap">
+  <section class="card auth-card" aria-labelledby="register-title">
+    <div class="gembi gembi--lg" data-gembi data-base-mood="suspicious">
+      {{- if .Errors}}{{template "mascot" "angry"}}{{else}}{{template "mascot" "suspicious"}}{{end -}}
+    </div>
+    <h1 id="register-title">Create an account</h1>
+    <p class="muted">Pick a username and a long password. Gembi won't peek.</p>
+    {{with .Errors}}
+    <div class="form-errors" role="alert">
+      <ul>{{range .}}<li>{{.}}</li>{{end}}</ul>
+    </div>
+    {{end}}
+    <form method="post" action="/register" class="stack">
+      <label>Username
+        <input name="username" autocomplete="username" required minlength="3" maxlength="32" value="{{with .Username}}{{.}}{{end}}">
+        <span class="hint">3–32 letters or digits.</span>
+      </label>
+      <label>Password
+        <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128" data-gembi-cover>
+        <span class="hint">At least 12 characters.</span>
+      </label>
+      <label>Confirm password
+        <input name="confirm" type="password" autocomplete="new-password" required data-gembi-cover>
+      </label>
+      <button type="submit" class="btn--primary">Create account</button>
+    </form>
+    <p class="auth-switch">Already have an account? <a href="/login">Log in</a></p>
+  </section>
+</div>
 {{template "footer" .}}{{end}}

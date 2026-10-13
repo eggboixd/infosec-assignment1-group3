@@ -1,10 +1,30 @@
 {{define "login.html"}}{{template "header" .}}
-<h1>Log in</h1>
-{{/* TODO(feature/frontend): show validation errors from .Errors. */}}
-<form method="post" action="/login" class="stack">
-  <label>Username <input name="username" autocomplete="username" required maxlength="32"></label>
-  <label>Password <input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
-  <button type="submit">Log in</button>
-</form>
-<p>No account? <a href="/register">Register</a></p>
+{{/* Data: .Errors (optional; a slice or map of messages), .Username (optional,
+     refills the field after a failed attempt). Gembi starts angry (one shake)
+     when there are errors, otherwise suspicious, and covers its eyes while the
+     password field has focus (mascot.js). */}}
+<div class="auth-wrap">
+  <section class="card auth-card" aria-labelledby="login-title">
+    <div class="gembi gembi--lg" data-gembi data-base-mood="suspicious">
+      {{- if .Errors}}{{template "mascot" "angry"}}{{else}}{{template "mascot" "suspicious"}}{{end -}}
+    </div>
+    <h1 id="login-title">Log in</h1>
+    <p class="muted">Gembi only opens up for the right password.</p>
+    {{with .Errors}}
+    <div class="form-errors" role="alert">
+      <ul>{{range .}}<li>{{.}}</li>{{end}}</ul>
+    </div>
+    {{end}}
+    <form method="post" action="/login" class="stack">
+      <label>Username
+        <input name="username" autocomplete="username" required maxlength="32" value="{{with .Username}}{{.}}{{end}}">
+      </label>
+      <label>Password
+        <input name="password" type="password" autocomplete="current-password" required maxlength="128" data-gembi-cover>
+      </label>
+      <button type="submit" class="btn--primary">Log in</button>
+    </form>
+    <p class="auth-switch">No account yet? <a href="/register">Register</a></p>
+  </section>
+</div>
 {{template "footer" .}}{{end}}
