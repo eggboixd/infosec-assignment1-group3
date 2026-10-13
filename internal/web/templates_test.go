@@ -9,7 +9,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
+	"github.com/eggboixd/infosec-assignment1-group3/internal/crypto"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/files"
+	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
 )
 
 // testFileRow has the fields files.html reads from each row: the
@@ -239,4 +241,70 @@ func TestFilesFormSendsKindBeforeFile(t *testing.T) {
 	if kind < 0 || file < 0 || kind > file {
 		t.Errorf(`name="kind" at %d, name="file" at %d: kind must come first`, kind, file)
 	}
+}
+
+func TestProfileTemplate(t *testing.T) {
+	// Obviously fake sample data; never put real personal data in tests.
+	stored := &profile.PrivateData{
+		FullName:    "Test Person",
+		NIK:         "0000000000000001",
+		DateOfBirth: "2000-01-31",
+		Address:     "Jl. Contoh No. 1",
+		Phone:       "081200000000",
+		Email:       "test@example.com",
+	}
+	runPageCases(t, []pageCase{
+		{
+			name: "stored data is prefilled and the chosen algorithm is selected",
+			page: "profile.html",
+			data: map[string]any{"Profile": stored, "Alg": crypto.DES},
+			mood: "smiling",
+			want: []string{
+				`value="Test Person"`, `value="0000000000000001"`, `value="2000-01-31"`,
+				">Jl. Contoh No. 1</textarea>", `value="081200000000"`, `value="test@example.com"`,
+				`<option value="des" selected>`, "decrypted with DES", "data-autosubmit",
+			},
+			notWant: []string{`<option value="aes" selected>`, `<option value="rc4" selected>`},
+		},
+		{
+			name: "algorithm defaults to AES",
+			page: "profile.html",
+			data: map[string]any{"Profile": stored},
+			want: []string{`<option value="aes" selected>`, "decrypted with AES-256"},
+		},
+		{
+			name: "rc4 is selectable",
+			page: "profile.html",
+			data: map[string]any{"Profile": stored, "Alg": crypto.RC4},
+			want: []string{`<option value="rc4" selected>`, "decrypted with RC4"},
+		},
+		{
+			name:    "nothing stored yet: sleepy, empty form, no algorithm selector",
+			page:    "profile.html",
+			data:    map[string]any{},
+			mood:    "sleepy",
+			want:    []string{"Nothing stored yet.", `name="full_name" autocomplete="name" required maxlength="100" value=""`},
+			notWant: []string{`name="alg"`, "Test Person"},
+		},
+		{
+			name: "validation errors: confused",
+			page: "profile.html",
+			data: map[string]any{"Errors": []string{"NIK must be 16 digits."}},
+			mood: "confused",
+			want: []string{`role="alert"`, "NIK must be 16 digits."},
+		},
+		{
+			name:    "stored values are escaped",
+			page:    "profile.html",
+			data:    map[string]any{"Profile": &profile.PrivateData{FullName: `"><script>alert(1)</script>`, Address: "</textarea><script>"}},
+			want:    []string{"&lt;/textarea&gt;&lt;script&gt;"},
+			notWant: []string{"<script>alert(1)", "</textarea><script>"},
+		},
+		{
+			name: "save form shows Gembi busy",
+			page: "profile.html",
+			data: map[string]any{},
+			want: []string{`method="post" action="/profile"`, `data-gembi-busy="Encrypting…"`},
+		},
+	})
 }
