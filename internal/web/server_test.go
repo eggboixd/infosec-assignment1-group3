@@ -206,7 +206,7 @@ func TestTemplatesRender(t *testing.T) {
 		t.Fatalf("loadTemplates: %v", err)
 	}
 	data := map[string]any{"Title": "Test", "User": &auth.User{Username: "u"}}
-	for _, name := range []string{"login.html", "register.html", "profile.html", "files.html", "benchmarks.html"} {
+	for _, name := range []string{"login.html", "register.html", "profile.html", "files.html", "benchmarks.html", "error.html"} {
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
 			t.Errorf("execute %s: %v", name, err)
@@ -215,6 +215,27 @@ func TestTemplatesRender(t *testing.T) {
 		if !strings.Contains(buf.String(), "htmx.min.js") || !strings.Contains(buf.String(), "</html>") {
 			t.Errorf("%s is missing the layout", name)
 		}
+	}
+}
+
+func TestNoRouteRendersConfusedPage(t *testing.T) {
+	for _, path := range []string{"/nope", "/files/x/y/z", "/static/missing.css"} {
+		t.Run(path, func(t *testing.T) {
+			r, _ := newTestEngine(t, 1024)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+
+			if w.Code != http.StatusNotFound {
+				t.Errorf("status = %d, want 404", w.Code)
+			}
+			body := w.Body.String()
+			if got := stageMood(t, body); got != "confused" {
+				t.Errorf("Gembi's mood = %q, want confused", got)
+			}
+			if !strings.Contains(body, "Error 404") {
+				t.Error("body is missing the status code")
+			}
+		})
 	}
 }
 

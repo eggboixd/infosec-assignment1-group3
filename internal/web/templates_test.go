@@ -329,3 +329,30 @@ func TestBenchmarksTemplate(t *testing.T) {
 		},
 	})
 }
+
+func TestErrorTemplate(t *testing.T) {
+	runPageCases(t, []pageCase{
+		{
+			name: "status and message",
+			page: "error.html",
+			data: map[string]any{"Status": 422, "Message": "This file failed its integrity check."},
+			mood: "confused",
+			want: []string{"Error 422", "This file failed its integrity check.", `href="/"`},
+		},
+		{
+			name:    "defaults without data",
+			page:    "error.html",
+			data:    map[string]any{},
+			mood:    "confused",
+			want:    []string{"Something went wrong."},
+			notWant: []string{"Error "},
+		},
+		{
+			name:    "message is escaped",
+			page:    "error.html",
+			data:    map[string]any{"Message": "<b>boom</b>"},
+			want:    []string{"&lt;b&gt;boom&lt;/b&gt;"},
+			notWant: []string{"<b>boom"},
+		},
+	})
+}
