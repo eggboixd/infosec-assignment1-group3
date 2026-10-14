@@ -12,21 +12,22 @@
  * expression (for example "unlocked" still shows the shackle open).
  */
 
-/* Gembi's colours. Like style.css, every colour is a variable here and the
-   part rules only use var(); a page can recolour Gembi by overriding them. */
+/* Gembi's colours, matched to the "Strawberry milk" theme. Like style.css,
+   every colour is a variable here and the part rules only use var(); a page
+   can recolour Gembi by overriding them. favicon.svg repeats these colours. */
 .mascot {
-  --m-ink: #3b3350;
-  --m-body: #ffd3bf;
-  --m-shackle: #ffe38f;
-  --m-hand: #ffbfa5;
-  --m-blush: #ffb3c7;
-  --m-angry: #ff8fa3;
-  --m-tongue: #ff9db3;
+  --m-ink: #47283a;
+  --m-body: #ffc4d4;
+  --m-shackle: #ffe59a;
+  --m-hand: #ffadc2;
+  --m-blush: #ff8fb0;
+  --m-angry: #ff5c7a; /* redder than the blush, so angry cheeks still read on a pink body */
+  --m-tongue: #ff7fa0;
   --m-spark: #ffc94d;
   --m-sweat: #8fd3f4;
-  --m-gear: #9c8ce0;
+  --m-gear: #d77fa1;
   --m-white: #ffffff; /* eye shine, gloss and the sticker border */
-  --m-shadow: rgba(59, 51, 80, 0.18);
+  --m-shadow: rgba(71, 40, 58, 0.18);
   display: block;
   width: 100%;
   height: auto;

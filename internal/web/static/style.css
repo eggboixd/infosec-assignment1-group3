@@ -1,4 +1,4 @@
-/* Secure Store theme: soft pastels, rounded cards, Nunito.
+/* Secure Store theme "Strawberry milk": blush pink, rounded cards, Nunito.
  * Everything is in this file (and mascot.css) because the CSP forbids
  * inline styles. Mobile first; wider layouts are added with min-width queries.
  */
@@ -15,32 +15,36 @@
 
 /* Every colour in this file is a token here; the rules below only use var().
    TestStylesheetColoursOnlyInTokens enforces that, so a new palette (or a
-   dark mode later) is just a new copy of this block. */
+   dark mode later) is just a new copy of this block.
+   Contrast: TestThemeContrast checks every text colour against the
+   backgrounds it is drawn on (>= 4.5:1, WCAG 1.4.3) and the form-field
+   border against its surroundings (>= 3:1, WCAG 1.4.11). Design notes and
+   the other candidate palettes: docs/design/palette-preview/. */
 :root {
-  --page: #fffaf3;
+  --page: #fff3f6;
   --card: #ffffff;
   --field: #ffffff;
   --btn: #ffffff;
-  --ink: #3b3350;
-  --ink-soft: #625a78;
-  --line: #efe6da;
-  --field-line: #efe6da;
-  --mint: #cdefe3;
-  --lavender: #e3daff;
-  --peach: #ffd9c7;
-  --butter: #fff1b8;
-  --pink: #ffd6e5;
-  --accent: #6550c4;
-  --accent-hover: #5641b0;
+  --ink: #47283a;
+  --ink-soft: #714d5d;
+  --line: #f5dce5;        /* dividers and button outlines: decoration only */
+  --field-line: #a87a8d;  /* input, select and textarea borders */
+  --mint: #d9f2e5;
+  --lavender: #e8dfff;
+  --peach: #ffdcc9;
+  --butter: #fff0c4;
+  --pink: #ffd5e4;
+  --accent: #b3325f;      /* raspberry */
+  --accent-hover: #962a50;
   --on-accent: #ffffff;
-  --accent-soft: #efeaff;
-  --danger: #b4234a;
-  --danger-soft: #ffe3ea;
-  --success: #1f7a55;
-  --success-soft: #dff5ea;
+  --accent-soft: #ffe6ef;
+  --danger: #a8201a;      /* a true red, so errors don't blend into the pink accent */
+  --danger-soft: #fde2df;
+  --success: #1d6a4a;
+  --success-soft: #dcf3e6;
   --radius: 20px;
   --radius-sm: 12px;
-  --shadow: 0 6px 20px rgba(59, 51, 80, 0.08);
+  --shadow: 0 6px 20px rgba(71, 40, 58, 0.08);
   --font: "Nunito", ui-rounded, "Segoe UI", system-ui, sans-serif;
 }
 
@@ -137,7 +141,7 @@ code {
   text-decoration: none;
 }
 .site-nav a:hover { background: var(--accent-soft); }
-.site-nav a[aria-current="page"] { background: var(--lavender); }
+.site-nav a[aria-current="page"] { background: var(--pink); }
 .user-chip {
   margin-left: 0.25rem;
   padding: 0.2rem 0.7rem;
@@ -342,12 +346,12 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 800;
-  background: var(--lavender);
+  background: var(--accent-soft);
   white-space: nowrap;
 }
 .kind--idcard { background: var(--peach); }
 .kind--document { background: var(--mint); }
-.kind--video { background: var(--butter); }
+.kind--video { background: var(--lavender); }
 
 .alg-links { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .alg-links a {
