@@ -109,3 +109,26 @@ Missing keys in a `gin.H` are simply falsy in `if`/`with`.
 - **Why:** one small text file that stays sharp at every size and can be reviewed like code. It is served from
   `/static`, so the CSP's `img-src 'self'` covers it. An SVG opened directly could run script, so
   `TestFaviconIsStaticSVG` fails if it ever gains a script, an event handler, an external reference or an animation.
+
+## 13. "Strawberry milk" palette, every colour a token, contrast checked by a test
+- **Choice:** blush pink background (`#fff3f6`), white cards, plum ink (`#47283a`), a raspberry accent (`#b3325f`) and
+  a true red for errors (`#a8201a`). Gembi and the favicon use matching pinks. Every colour is a variable in one
+  block: `:root` in `style.css`, `.mascot` in `mascot.css`. The other rules only use `var()`.
+- **Alternatives:** the original cream theme; Periwinkle, Matcha and a dark "Midnight plum". All four candidates
+  are in `docs/design/palette-preview/`, each on a mini copy of the UI with its contrast table.
+- **Why:**
+  - **Look:** the team found the cream background dull. Pink is the friendliest of the four and suits Gembi.
+  - **Errors stay red:** with a pink accent, a pink-red error colour would blend in, so errors use a separate,
+    clearly red `--danger`.
+  - **Contrast:** every text colour is at least 4.5:1 on the backgrounds it is drawn on (WCAG 1.4.3 AA). The lowest
+    is 5.0:1, the download pill on hover.
+  - **Field borders:** form-field borders were too faint (1.2:1), so inputs, selects and textareas now have their
+    own `--field-line` at 3.6:1 on cards (WCAG 1.4.11 asks for 3:1). Dividers and button outlines keep the light
+    `--line` because they are decoration: a button is identified by its text.
+  - **Tokens:** `style.css` used to hard-code a few colours (white field and button backgrounds, the primary hover).
+    With everything as a token, a new palette or a later dark mode is one block of variables.
+- **Enforced by tests** (`internal/web/theme_test.go`):
+  - `TestStylesheetColoursOnlyInTokens` fails on a colour literal outside the token blocks;
+  - `TestThemeContrast` recomputes the WCAG ratio of every text/background pair from the tokens;
+  - `TestFaviconMatchesMascot` fails if `favicon.svg` uses a colour that is not one of Gembi's variables. The favicon
+    can't load `mascot.css`, so it repeats the colours and could otherwise drift.
