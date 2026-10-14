@@ -12,6 +12,8 @@
  * expression (for example "unlocked" still shows the shackle open).
  */
 
+/* Gembi's colours. Like style.css, every colour is a variable here and the
+   part rules only use var(); a page can recolour Gembi by overriding them. */
 .mascot {
   --m-ink: #3b3350;
   --m-body: #ffd3bf;
@@ -23,11 +25,13 @@
   --m-spark: #ffc94d;
   --m-sweat: #8fd3f4;
   --m-gear: #9c8ce0;
+  --m-white: #ffffff; /* eye shine, gloss and the sticker border */
+  --m-shadow: rgba(59, 51, 80, 0.18);
   display: block;
   width: 100%;
   height: auto;
   overflow: visible; /* the shackle and the "z z" may leave the viewBox */
-  filter: drop-shadow(0 3px 2px rgba(59, 51, 80, 0.18));
+  filter: drop-shadow(0 3px 2px var(--m-shadow));
 }
 
 /* Size wrappers. */
@@ -40,7 +44,7 @@
 
 .m-body { fill: var(--m-body); stroke: var(--m-ink); stroke-width: 4; stroke-linejoin: round; }
 .m-ink { fill: var(--m-ink); }
-.m-white { fill: #fff; }
+.m-white { fill: var(--m-white); }
 .m-blush { fill: var(--m-blush); }
 .m-tongue { fill: var(--m-tongue); }
 .m-hand { fill: var(--m-hand); stroke: var(--m-ink); stroke-width: 4; }
@@ -57,12 +61,12 @@
 }
 .m-ink-stroke { stroke: var(--m-ink); stroke-width: 4.5; }
 .m-hand-line { stroke: var(--m-ink); stroke-width: 3; }
-.m-gloss-line { stroke: #fff; stroke-width: 3.5; opacity: 0.8; }
+.m-gloss-line { stroke: var(--m-white); stroke-width: 3.5; opacity: 0.8; }
 
 /* Sticker border: the white silhouettes are drawn first and the
    ink-outlined parts on top, so the white edge wraps the whole figure. */
-.m-sticker-line { fill: none; stroke: #fff; stroke-width: 25; stroke-linecap: round; }
-.m-sticker-fill { fill: #fff; stroke: #fff; stroke-width: 12; stroke-linejoin: round; }
+.m-sticker-line { fill: none; stroke: var(--m-white); stroke-width: 25; stroke-linecap: round; }
+.m-sticker-fill { fill: var(--m-white); stroke: var(--m-white); stroke-width: 12; stroke-linejoin: round; }
 .m-shackle-outline { fill: none; stroke: var(--m-ink); stroke-width: 16; stroke-linecap: round; }
 .m-shackle-bar { fill: none; stroke: var(--m-shackle); stroke-width: 8; stroke-linecap: round; }
 

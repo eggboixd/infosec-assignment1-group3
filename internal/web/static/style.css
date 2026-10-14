@@ -13,18 +13,26 @@
   src: url("/static/fonts/nunito-latin-wght-normal.woff2") format("woff2");
 }
 
+/* Every colour in this file is a token here; the rules below only use var().
+   TestStylesheetColoursOnlyInTokens enforces that, so a new palette (or a
+   dark mode later) is just a new copy of this block. */
 :root {
-  --cream: #fffaf3;
+  --page: #fffaf3;
   --card: #ffffff;
+  --field: #ffffff;
+  --btn: #ffffff;
   --ink: #3b3350;
   --ink-soft: #625a78;
   --line: #efe6da;
+  --field-line: #efe6da;
   --mint: #cdefe3;
   --lavender: #e3daff;
   --peach: #ffd9c7;
   --butter: #fff1b8;
   --pink: #ffd6e5;
   --accent: #6550c4;
+  --accent-hover: #5641b0;
+  --on-accent: #ffffff;
   --accent-soft: #efeaff;
   --danger: #b4234a;
   --danger-soft: #ffe3ea;
@@ -49,7 +57,7 @@ body {
   font-size: 1rem;
   line-height: 1.55;
   color: var(--ink);
-  background: var(--cream);
+  background: var(--page);
 }
 
 h1, h2, h3 { line-height: 1.2; margin: 0 0 0.5rem; font-weight: 800; }
@@ -202,11 +210,11 @@ input, select, textarea {
   color: var(--ink);
   width: 100%;
   padding: 0.55rem 0.8rem;
-  border: 2px solid var(--line);
+  border: 2px solid var(--field-line);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--field);
 }
-input[type="file"] { padding: 0.45rem; background: var(--cream); }
+input[type="file"] { padding: 0.45rem; background: var(--page); }
 textarea { min-height: 5.5rem; resize: vertical; }
 input:focus, select:focus, textarea:focus {
   outline: none;
@@ -225,14 +233,14 @@ button {
   padding: 0.55rem 1.2rem;
   border: 2px solid var(--line);
   border-radius: 999px;
-  background: #fff;
+  background: var(--btn);
   color: var(--ink);
   cursor: pointer;
   text-decoration: none;
 }
 .btn:hover, button:hover { border-color: var(--accent); }
-.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn--primary:hover { background: #5641b0; border-color: #5641b0; }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .btn--ghost { background: transparent; }
 .btn--danger { color: var(--danger); }
 .btn--danger:hover { border-color: var(--danger); background: var(--danger-soft); }
