@@ -5,8 +5,9 @@
 // cipher, so all three are driven through cipher.Stream by one streaming code
 // path. Each encryption uses a fresh random data key (DEK), a fresh random IV
 // (none for RC4), and a separate HMAC-SHA256 key; the MAC is computed over the
-// ciphertext (encrypt-then-MAC). DEK and MAC key are wrapped with the master
-// key (KEK) and stored in Meta next to the ciphertext.
+// ciphertext (encrypt-then-MAC), prefixed by a header holding every other Meta
+// field. DEK and MAC key are wrapped with the master key (KEK) and stored in
+// Meta next to the ciphertext. Envelope is the implementation.
 //
 // This package must not import Gin or any feature package.
 package crypto
@@ -84,7 +85,7 @@ type Meta struct {
 	IV            []byte    `bson:"iv,omitempty" json:"iv,omitempty"` // AESIVSize or DESIVSize bytes; empty for RC4
 	WrappedDEK    []byte    `bson:"wrapped_dek" json:"-"`
 	WrappedMACKey []byte    `bson:"wrapped_mac_key" json:"-"`
-	Tag           []byte    `bson:"tag" json:"tag"` // HMAC-SHA256 over the ciphertext
+	Tag           []byte    `bson:"tag" json:"tag"` // HMAC-SHA256 over a header (alg, IV, wrapped keys) and the ciphertext
 }
 
 // Encryptor encrypts and decrypts data under one master key.

@@ -64,7 +64,7 @@ sequenceDiagram
 
 1. The handler reads the request with `c.Request.MultipartReader()`. The `kind` part comes first and is checked against the allowlist before any file bytes are read.
 2. The service reads the file part exactly once. An `io.MultiWriter` fans it out to three `io.Pipe`s, one per algorithm.
-3. Each goroutine encrypts its stream. AES and DES use CTR; RC4 is a native stream cipher. The ciphertext is MACed as it is produced and piped straight into `ObjectStore.Put` with unknown size, so MinIO receives it in bounded 16 MiB parts.
+3. Each goroutine encrypts its stream. AES and DES use CTR; RC4 is a native stream cipher. The ciphertext is MACed as it is produced (the MAC also covers a header with the algorithm, IV and wrapped keys; see `docs/decisions.md` D8) and piped straight into `ObjectStore.Put` with unknown size, so MinIO receives it in bounded 16 MiB parts.
 4. When all three finish, one `FileRecord` holding all three `Variant`s (object key and `Meta`) is inserted. If any variant fails, the objects already written are deleted and no metadata is stored.
 5. Each encryption is wrapped in `benchmark.Measure`, which records crypto-only time (via `crypto.Clock`) and total time.
 
@@ -99,5 +99,5 @@ sequenceDiagram
 
 1. The record is looked up by ID **and** owner, so another user's file reads as "not found".
 2. `Decrypt` first reads the whole stored object and checks the HMAC tag with `hmac.Equal`. Until that check passes, nothing is written to the response, so tampering can still be reported with an error status.
-3. It then seeks the object back to the start (MinIO objects support `Seek`) and streams the plaintext into the response.
+3. It then seeks the object back to the start (MinIO objects support `Seek`) and streams the plaintext into the response, recomputing the MAC as it goes so that an object replaced between the two passes is still reported as `ErrAuthentication`.
 4. Both passes are timed. The repeated-download script in `scripts/bench/` produces the data for the report.
