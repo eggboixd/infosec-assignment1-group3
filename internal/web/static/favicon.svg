@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 5 130 130">
+  <!-- Gembi's smiling face as the tab icon: the same shapes as
+       templates/mascot.html, with colours as presentation attributes because
+       a favicon is loaded as an image and can't use mascot.css. Static on
+       purpose: no script, no animation, no external references. The colours
+       must match the .mascot variables in mascot.css (TestFaviconMatchesMascot). -->
+  <path d="M36 80 V44 a24 24 0 0 1 48 0 V80" fill="none" stroke="#fff" stroke-width="25" stroke-linecap="round"/>
+  <rect x="18" y="58" width="84" height="70" rx="20" fill="#fff" stroke="#fff" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M36 80 V44 a24 24 0 0 1 48 0 V80" fill="none" stroke="#47283a" stroke-width="16" stroke-linecap="round"/>
+  <path d="M36 80 V44 a24 24 0 0 1 48 0 V80" fill="none" stroke="#ffe59a" stroke-width="8" stroke-linecap="round"/>
+  <rect x="18" y="58" width="84" height="70" rx="20" fill="#ffc4d4" stroke="#47283a" stroke-width="4" stroke-linejoin="round"/>
+  <ellipse cx="32" cy="101" rx="6.5" ry="3.5" fill="#ff8fb0"/>
+  <ellipse cx="88" cy="101" rx="6.5" ry="3.5" fill="#ff8fb0"/>
+  <circle cx="45" cy="89" r="5.5" fill="#47283a"/>
+  <circle cx="75" cy="89" r="5.5" fill="#47283a"/>
+  <path d="M53 104 q7 7 14 0" fill="none" stroke="#47283a" stroke-width="5" stroke-linecap="round"/>
+</svg>

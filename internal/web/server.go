@@ -65,5 +65,15 @@ func NewEngine(opts Options) (*gin.Engine, error) {
 	for _, f := range opts.Features {
 		f.RegisterRoutes(public, protected)
 	}
+
+	// Unknown paths (including missing /static files) get the error page
+	// instead of Gin's plain-text 404.
+	r.NoRoute(func(c *gin.Context) {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"Title":   "Not found",
+			"Status":  http.StatusNotFound,
+			"Message": "We couldn't find that page.",
+		})
+	})
 	return r, nil
 }

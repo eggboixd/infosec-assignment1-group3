@@ -1,0 +1,13 @@
+{{define "error.html"}}{{template "header" .}}
+{{/* Data: .Status (the HTTP status code) and .Message (short, user-facing
+     text; never an internal error string). NoRoute uses it for 404s; other
+     branches can render it too, for example a 422 when a download fails its
+     integrity check. */}}
+<section class="card error-page" aria-labelledby="error-title">
+  <div class="gembi gembi--lg" data-gembi data-base-mood="confused">{{template "mascot" "confused"}}</div>
+  {{with .Status}}<span class="error-code">Error {{.}}</span>{{end}}
+  <h1 id="error-title">{{with .Message}}{{.}}{{else}}Something went wrong.{{end}}</h1>
+  <p class="muted">Gembi is confused too. Let's go back somewhere safe.</p>
+  <p><a class="btn btn--primary" href="/">Back to my files</a></p>
+</section>
+{{template "footer" .}}{{end}}

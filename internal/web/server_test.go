@@ -62,9 +62,7 @@ func TestStubRoutesReturnNotImplemented(t *testing.T) {
 		path      string
 		protected bool
 	}{
-		{http.MethodGet, "/register", false},
 		{http.MethodPost, "/register", false},
-		{http.MethodGet, "/login", false},
 		{http.MethodPost, "/login", false},
 		{http.MethodPost, "/logout", true},
 		{http.MethodGet, "/profile", true},
@@ -94,6 +92,39 @@ func TestStubRoutesReturnNotImplemented(t *testing.T) {
 			}
 			if tt.protected && !probe.sawUser {
 				t.Error("RequireAuth did not provide a current user")
+			}
+		})
+	}
+}
+
+func TestAuthPagesRender(t *testing.T) {
+	tests := []struct {
+		path   string
+		action string
+	}{
+		{"/login", `action="/login"`},
+		{"/register", `action="/register"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			r, probe := newTestEngine(t, 1<<20)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, tt.path, nil))
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", w.Code)
+			}
+			if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+				t.Errorf("Content-Type = %q, want text/html", ct)
+			}
+			body := w.Body.String()
+			for _, want := range []string{tt.action, "mascot--suspicious", "data-gembi-cover"} {
+				if !strings.Contains(body, want) {
+					t.Errorf("body is missing %q", want)
+				}
+			}
+			if probe.hits != 0 {
+				t.Errorf("RequireAuth ran %d times on a public page, want 0", probe.hits)
 			}
 		})
 	}
@@ -175,7 +206,7 @@ func TestTemplatesRender(t *testing.T) {
 		t.Fatalf("loadTemplates: %v", err)
 	}
 	data := map[string]any{"Title": "Test", "User": &auth.User{Username: "u"}}
-	for _, name := range []string{"login.html", "register.html", "profile.html", "files.html", "benchmarks.html"} {
+	for _, name := range []string{"login.html", "register.html", "profile.html", "files.html", "benchmarks.html", "error.html"} {
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
 			t.Errorf("execute %s: %v", name, err)
@@ -187,11 +218,51 @@ func TestTemplatesRender(t *testing.T) {
 	}
 }
 
+func TestNoRouteRendersConfusedPage(t *testing.T) {
+	for _, path := range []string{"/nope", "/files/x/y/z", "/static/missing.css"} {
+		t.Run(path, func(t *testing.T) {
+			r, _ := newTestEngine(t, 1024)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+
+			if w.Code != http.StatusNotFound {
+				t.Errorf("status = %d, want 404", w.Code)
+			}
+			body := w.Body.String()
+			if got := stageMood(t, body); got != "confused" {
+				t.Errorf("Gembi's mood = %q, want confused", got)
+			}
+			if !strings.Contains(body, "Error 404") {
+				t.Error("body is missing the status code")
+			}
+		})
+	}
+}
+
 func TestStaticAssetsServed(t *testing.T) {
-	r, _ := newTestEngine(t, 1024)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/static/style.css", nil))
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want 200", w.Code)
+	tests := []struct {
+		path        string
+		contentType string
+	}{
+		{"/static/style.css", "text/css"},
+		{"/static/mascot.css", "text/css"},
+		{"/static/app.js", "javascript"},
+		{"/static/mascot.js", "javascript"},
+		{"/static/fonts/nunito-latin-wght-normal.woff2", "font/woff2"},
+		{"/static/fonts/OFL.txt", "text/plain"},
+		{"/static/favicon.svg", "image/svg+xml"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			r, _ := newTestEngine(t, 1024)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, tt.path, nil))
+			if w.Code != http.StatusOK {
+				t.Errorf("status = %d, want 200", w.Code)
+			}
+			if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, tt.contentType) {
+				t.Errorf("Content-Type = %q, want it to contain %q", ct, tt.contentType)
+			}
+		})
 	}
 }

@@ -1,23 +1,89 @@
 {{define "files.html"}}{{template "header" .}}
-<h1>Files</h1>
-{{/* The "kind" field must come before "file" so the server can validate it
-     before streaming the upload.
-     TODO(feature/frontend): render .Files with one download link per
-     algorithm (/files/ID/download?alg=aes|des|rc4) and a delete button
-     using hx-delete="/files/ID" hx-target="closest tr" hx-swap="outerHTML". */}}
-<form method="post" action="/files" enctype="multipart/form-data" class="stack">
-  <label>Kind
-    <select name="kind" required>
-      <option value="idcard">ID card (JPEG, PNG)</option>
-      <option value="document">Document (PDF, DOC, DOCX, XLS, XLSX)</option>
-      <option value="video">Video (MP4, WebM)</option>
-    </select>
-  </label>
-  <label>File <input name="file" type="file" required></label>
-  <button type="submit">Upload</button>
-</form>
-<table>
-  <thead><tr><th>Name</th><th>Kind</th><th>Size</th><th>Download</th><th></th></tr></thead>
-  <tbody></tbody>
-</table>
+{{/* Data:
+       .Files         rows from files.Service.List. Each row needs .ID (a
+                      bson.ObjectID), .Name (the decrypted original filename;
+                      FileRecord only holds it encrypted, so feature/file-storage
+                      provides the plaintext as a view field), .Kind, .Size
+                      (plaintext bytes) and .CreatedAt.
+       .JustLoggedIn  true on the first render after login: Gembi unlocks once.
+     Gembi is smiling when there are files and sleepy when there are none; it is
+     busy while an upload is sent and happy when a download starts (mascot.js).
+     The "kind" field must come before "file" so the server can validate it
+     before streaming the upload. */}}
+<section class="card">
+  <div class="page-head">
+    <div class="gembi" data-gembi data-base-mood="{{if .Files}}smiling{{else}}sleepy{{end}}">
+      {{- if .JustLoggedIn}}{{template "mascot" "unlocked"}}{{else if .Files}}{{template "mascot" "smiling"}}{{else}}{{template "mascot" "sleepy"}}{{end -}}
+    </div>
+    <div>
+      <h1>{{with .User}}Hi, {{.Username}}!{{else}}Your files{{end}}</h1>
+      <p>Everything you upload is encrypted three times, with AES-256, DES and RC4. You pick which copy to decrypt when you download.</p>
+    </div>
+  </div>
+</section>
+
+<section class="card" aria-labelledby="upload-title">
+  <h2 id="upload-title">Upload a file</h2>
+  <form method="post" action="/files" enctype="multipart/form-data" class="stack" data-gembi-busy="Locking it up…">
+    <label>Kind
+      <select name="kind" required>
+        <option value="idcard">ID card (JPEG, PNG)</option>
+        <option value="document">Document (PDF, DOC, DOCX, XLS, XLSX)</option>
+        <option value="video">Video (MP4, WebM)</option>
+      </select>
+    </label>
+    <label>File
+      <input name="file" type="file" required accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.mp4,.webm">
+      <span class="hint">The server checks the type again; this list only filters the file picker.</span>
+    </label>
+    <button type="submit" class="btn--primary">Encrypt &amp; upload</button>
+  </form>
+</section>
+
+<section class="card" aria-labelledby="files-title">
+  <h2 id="files-title">Your files</h2>
+  <div class="empty-state" data-gembi-empty {{if .Files}}hidden{{end}}>
+    <strong>Nothing stored yet.</strong>
+    <span>Gembi is napping. Upload an ID card, a document or a video and it will lock it up.</span>
+  </div>
+  {{if .Files}}
+  <table class="responsive-table">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Kind</th>
+        <th scope="col" class="num">Size</th>
+        <th scope="col">Uploaded</th>
+        <th scope="col">Download as</th>
+        <th scope="col"><span class="visually-hidden">Delete</span></th>
+      </tr>
+    </thead>
+    <tbody data-gembi-list>
+      {{range .Files}}
+      <tr>
+        <td class="file-name" data-label="Name">{{.Name}}</td>
+        <td data-label="Kind"><span class="kind kind--{{.Kind}}">{{template "kindLabel" .Kind}}</span></td>
+        <td class="num" data-label="Size">{{humanBytes .Size}}</td>
+        <td data-label="Uploaded"><time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2 Jan 2006, 15:04"}}</time></td>
+        <td data-label="Download as">
+          <div class="alg-links">
+            <a href="/files/{{.ID.Hex}}/download?alg=aes" data-gembi-download>AES</a>
+            <a href="/files/{{.ID.Hex}}/download?alg=des" data-gembi-download>DES</a>
+            <a href="/files/{{.ID.Hex}}/download?alg=rc4" data-gembi-download>RC4</a>
+          </div>
+        </td>
+        <td class="actions">
+          <button type="button" class="btn--danger btn--small"
+                  hx-delete="/files/{{.ID.Hex}}" hx-target="closest tr" hx-swap="outerHTML"
+                  hx-confirm="Delete this file and all three encrypted copies?">Delete</button>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+</section>
 {{template "footer" .}}{{end}}
+
+{{/* kindLabel turns a files.Kind into a label for the table. */}}
+{{define "kindLabel"}}{{if eq (print .) "idcard"}}ID card{{else if eq (print .) "document"}}Document{{else if eq (print .) "video"}}Video{{else}}{{.}}{{end}}{{end}}

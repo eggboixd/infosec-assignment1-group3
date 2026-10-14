@@ -1,0 +1,286 @@
+/* Layout for the mascot preview page only. The mascot itself is in mascot.css. */
+
+:root {
+  --cream: #fffaf3;
+  --card: #ffffff;
+  --ink: #3b3350;
+  --ink-soft: #625a78;
+  --line: #efe6da;
+  --mint: #cdefe3;
+  --lavender: #e3daff;
+  --peach: #ffd9c7;
+  --butter: #fff1b8;
+  --pink: #ffd6e5;
+  --accent: #6550c4;
+  --accent-soft: #efeaff;
+  --radius: 20px;
+  --shadow: 0 6px 20px rgba(59, 51, 80, 0.08);
+  --font: ui-rounded, "Nunito", "Quicksand", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--cream);
+}
+
+h1, h2 { line-height: 1.2; margin: 0 0 0.6rem; }
+h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); }
+h2 { font-size: 1.3rem; }
+code {
+  font-size: 0.88em;
+  background: var(--accent-soft);
+  padding: 0.05rem 0.35rem;
+  border-radius: 6px;
+}
+
+.hero,
+main,
+.footer {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 1.5rem;
+  align-items: center;
+  padding-top: 2.5rem;
+  padding-bottom: 1.5rem;
+}
+.eyebrow {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.lead { margin: 0; color: var(--ink-soft); font-size: 1.05rem; }
+
+.hero-mascots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+.hero-slot {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  padding: 1rem 0.5rem 0.75rem;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+}
+.hero-slot > div { width: 100%; max-width: 110px; }
+
+/* ---------- Cards ---------- */
+
+main { display: grid; gap: 1.25rem; padding-bottom: 2rem; }
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.4rem;
+}
+.note { margin: 0.5rem 0 0; font-size: 0.88rem; color: var(--ink-soft); }
+
+.names {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+.names li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.8rem 1rem;
+  border-radius: 14px;
+  background: var(--butter);
+}
+.names li:nth-child(2) { background: var(--mint); }
+.names li:nth-child(3) { background: var(--pink); }
+.names strong { font-size: 1.25rem; }
+
+.swatches {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.1rem;
+}
+.swatches li { display: flex; align-items: center; gap: 0.45rem; font-size: 0.9rem; }
+.swatch {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: 2px solid rgba(59, 51, 80, 0.12);
+}
+.swatch--mint { background: var(--mint); }
+.swatch--lavender { background: var(--lavender); }
+.swatch--peach { background: var(--peach); }
+.swatch--butter { background: var(--butter); }
+.swatch--pink { background: var(--pink); }
+.swatch--cream { background: var(--cream); }
+.swatch--ink { background: var(--ink); }
+.font-sample { margin: 1rem 0 0; font-size: 1.6rem; font-weight: 800; }
+
+.plain { margin: 0; padding-left: 1.2rem; }
+.plain li + li { margin-top: 0.3rem; }
+
+/* ---------- Live demo ---------- */
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+.demo-stage-wrap {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem 1rem;
+  background: var(--lavender);
+  border-radius: var(--radius);
+}
+.demo-stage { width: 100%; max-width: 200px; }
+.demo-status { margin: 0; font-weight: 700; text-align: center; min-height: 3em; }
+
+.demo-controls { display: grid; gap: 1rem; }
+
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend { font-weight: 700; margin-bottom: 0.4rem; padding: 0; }
+
+.segmented { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.segmented legend { width: 100%; }
+.segmented label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.8rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+.segmented label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+
+.demo-form { display: grid; gap: 0.7rem; max-width: 26rem; }
+.demo-form label { display: grid; gap: 0.25rem; font-weight: 700; }
+.demo-form input {
+  font: inherit;
+  font-weight: 400;
+  padding: 0.55rem 0.8rem;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+}
+.demo-form input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.button-row, .chip-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.btn,
+.chip {
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+}
+.btn:hover, .chip:hover { border-color: var(--accent); }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip { padding: 0.3rem 0.8rem; font-size: 0.88rem; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.toggle { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; cursor: pointer; }
+
+/* ---------- Galleries ---------- */
+
+.style-section {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.4rem 1.4rem;
+}
+.style-head p { margin: 0 0 1rem; color: var(--ink-soft); }
+.tag {
+  display: inline-grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  margin-right: 0.3rem;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+.tag--mint { background: var(--mint); }
+.tag--peach { background: var(--peach); }
+.tag--lavender { background: var(--lavender); }
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+.mood-card {
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.1rem 0.8rem 0.8rem;
+  border-radius: 16px;
+  background: var(--cream);
+  text-align: center;
+}
+.mood-card:nth-child(5n + 1) { background: #f1fbf7; }
+.mood-card:nth-child(5n + 2) { background: #f6f2ff; }
+.mood-card:nth-child(5n + 3) { background: #fff5ef; }
+.mood-card:nth-child(5n + 4) { background: #fffbea; }
+.mood-card:nth-child(5n + 5) { background: #fff3f8; }
+.mood-stage { width: 100%; max-width: 120px; margin: 0 auto; }
+.mood-card figcaption { display: grid; gap: 0.1rem; font-size: 0.85rem; color: var(--ink-soft); }
+.mood-card strong { font-size: 1rem; color: var(--ink); }
+.mood-card code { justify-self: center; }
+
+.footer { padding-bottom: 2rem; font-size: 0.85rem; color: var(--ink-soft); text-align: center; }
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; padding-top: 1.5rem; }
+  .demo-grid { grid-template-columns: 1fr; }
+  .demo-stage { max-width: 170px; }
+}
+
+@media (max-width: 400px) {
+  .card, .style-section { padding: 1rem; }
+  .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .hero-slot span { font-size: 0.75rem; }
+}
+
+/* "Simulate reduced motion" toggle: the same rule as the media query in mascot.css. */
+.simulate-reduced-motion .mascot,
+.simulate-reduced-motion .mascot * {
+  animation: none !important;
+  transition: none !important;
+}

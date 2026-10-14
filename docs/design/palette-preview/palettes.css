@@ -1,0 +1,148 @@
+/* The four candidate palettes, one block of tokens each. The component rules in preview.css
+ * only use these variables. Snapshot of the October 2026 choice: Strawberry milk won. The live
+ * values are the :root block in internal/web/static/style.css and the .mascot block in
+ * mascot.css; TestThemeContrast checks those, not this file. */
+
+/* Periwinkle (Calm & techy) */
+.pal--periwinkle {
+  color-scheme: light;
+  --page: #f2f3ff;
+  --card: #ffffff;
+  --field: #ffffff;
+  --btn: #ffffff;
+  --ink: #2e2b4d;
+  --ink-soft: #575579;
+  --line: #dfe2f8;
+  --accent: #4b55c4;
+  --accent-hover: #3c45a8;
+  --on-accent: #ffffff;
+  --accent-soft: #e9ebff;
+  --nav-current: #d9ddff;
+  --chip-user: #f0e6ff;
+  --chip-ink: #2e2b4d;
+  --kind-idcard: #ffdcea;
+  --kind-document: #d6ecff;
+  --kind-video: #e6dcff;
+  --danger: #b4234a;
+  --danger-soft: #ffe3ea;
+  --success: #1d7350;
+  --success-soft: #ddf4e9;
+  --shadow: rgba(46, 43, 77, 0.10);
+}
+.pal--periwinkle .mascot {
+  --m-ink: #2e2b4d;
+  --m-body: #c7cdff;
+  --m-shackle: #fff0a8;
+  --m-hand: #b3baf5;
+  --m-blush: #ffb3d1;
+  --m-tongue: #ff9dbb;
+  --m-gear: #7d86e0;
+}
+
+/* Matcha (Fresh & safe) */
+.pal--matcha {
+  color-scheme: light;
+  --page: #eff6f1;
+  --card: #ffffff;
+  --field: #ffffff;
+  --btn: #ffffff;
+  --ink: #213429;
+  --ink-soft: #475d51;
+  --line: #d6e7dc;
+  --accent: #2a6b50;
+  --accent-hover: #205640;
+  --on-accent: #ffffff;
+  --accent-soft: #e0f1e7;
+  --nav-current: #c8ead7;
+  --chip-user: #f3efc4;
+  --chip-ink: #213429;
+  --kind-idcard: #ffdfcc;
+  --kind-document: #cdeee0;
+  --kind-video: #ece4ff;
+  --danger: #b3263e;
+  --danger-soft: #fde3e7;
+  --success: #1d6a4a;
+  --success-soft: #d8f1e3;
+  --shadow: rgba(33, 52, 41, 0.10);
+}
+.pal--matcha .mascot {
+  --m-ink: #213429;
+  --m-body: #b9e3c9;
+  --m-shackle: #f7e59a;
+  --m-hand: #a3d6b7;
+  --m-blush: #ffb5ad;
+  --m-tongue: #ff9d9d;
+  --m-gear: #5fae8a;
+}
+
+/* Strawberry milk (Sweetest) */
+.pal--strawberry {
+  color-scheme: light;
+  --page: #fff3f6;
+  --card: #ffffff;
+  --field: #ffffff;
+  --btn: #ffffff;
+  --ink: #47283a;
+  --ink-soft: #714d5d;
+  --line: #f5dce5;
+  --accent: #b3325f;
+  --accent-hover: #962a50;
+  --on-accent: #ffffff;
+  --accent-soft: #ffe6ef;
+  --nav-current: #ffd5e4;
+  --chip-user: #fff0c4;
+  --chip-ink: #47283a;
+  --kind-idcard: #ffdcc9;
+  --kind-document: #d9f2e5;
+  --kind-video: #e8dfff;
+  --danger: #a8201a;
+  --danger-soft: #fde2df;
+  --success: #1d6a4a;
+  --success-soft: #dcf3e6;
+  --shadow: rgba(71, 40, 58, 0.10);
+}
+.pal--strawberry .mascot {
+  --m-ink: #47283a;
+  --m-body: #ffc4d4;
+  --m-shackle: #ffe59a;
+  --m-hand: #ffadc2;
+  --m-blush: #ff8fb0;
+  --m-tongue: #ff7fa0;
+  --m-gear: #d77fa1;
+}
+
+/* Midnight plum (Cute dark mode) */
+.pal--midnight {
+  color-scheme: dark;
+  --page: #1c1929;
+  --card: #272339;
+  --field: #1f1c30;
+  --btn: #2f2a45;
+  --ink: #f2edff;
+  --ink-soft: #b8b0d4;
+  --line: #3b3554;
+  --accent: #b7a6ff;
+  --accent-hover: #cbbfff;
+  --on-accent: #1c1929;
+  --accent-soft: #383061;
+  --nav-current: #4a3f80;
+  --chip-user: #ffe7a0;
+  --chip-ink: #1c1929;
+  --kind-idcard: #ffc6b3;
+  --kind-document: #a8e6cc;
+  --kind-video: #d4c8ff;
+  --danger: #ff94a8;
+  --danger-soft: #45222f;
+  --success: #8ee3b8;
+  --success-soft: #1e3a31;
+  --shadow: rgba(0, 0, 0, 0.35);
+}
+.pal--midnight .mascot {
+  --m-ink: #1c1929;
+  --m-body: #c4b5ff;
+  --m-shackle: #ffe38f;
+  --m-hand: #b3a2f5;
+  --m-blush: #ff9fc0;
+  --m-tongue: #ff8fb0;
+  --m-gear: #b7a6ff;
+}

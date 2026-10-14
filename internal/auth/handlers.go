@@ -30,24 +30,30 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-// TODO(feature/frontend): render register.html.
+// showRegister renders the empty registration form.
 func (h *Handler) showRegister(c *gin.Context) {
-	c.String(http.StatusNotImplemented, "not implemented")
+	c.HTML(http.StatusOK, "register.html", gin.H{"Title": "Register"})
 }
 
 // TODO(feature/auth): bind registerForm with c.ShouldBind, call
-// h.svc.Register, then redirect to /login.
+// h.svc.Register, then redirect to /login. On failure re-render
+// register.html with gin.H{"Title", "Errors" ([]string or map of messages),
+// "Username"}; Gembi shakes when Errors is set. Never echo the password.
 func (h *Handler) register(c *gin.Context) {
 	c.String(http.StatusNotImplemented, "not implemented")
 }
 
-// TODO(feature/frontend): render login.html.
+// showLogin renders the empty login form.
 func (h *Handler) showLogin(c *gin.Context) {
-	c.String(http.StatusNotImplemented, "not implemented")
+	c.HTML(http.StatusOK, "login.html", gin.H{"Title": "Log in"})
 }
 
 // TODO(feature/auth): bind loginForm, call h.svc.Login, rotate the session
-// ID, store the user ID in the session, then redirect to /files.
+// ID, store the user ID in the session, then redirect to /files. On failure
+// re-render login.html with gin.H{"Title", "Errors", "Username"} (one
+// generic message, so usernames can't be probed). After a successful login,
+// set a one-time session flag so the next /files render passes
+// "JustLoggedIn": true and Gembi plays its unlock animation.
 func (h *Handler) login(c *gin.Context) {
 	c.String(http.StatusNotImplemented, "not implemented")
 }
