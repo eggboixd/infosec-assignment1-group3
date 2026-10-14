@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"io/fs"
 	"regexp"
 	"strings"
 	"testing"
@@ -402,6 +403,48 @@ func TestTemplatesAreCSPSafe(t *testing.T) {
 			}
 		}
 	}
+}
+
+// An SVG served from our origin can carry script if it is ever opened
+// directly, so the favicon must stay a plain picture: no script, no event
+// handlers, nothing loaded from elsewhere.
+func TestFaviconIsStaticSVG(t *testing.T) {
+	b, err := fs.ReadFile(assets, "static/favicon.svg")
+	if err != nil {
+		t.Fatalf("read favicon: %v", err)
+	}
+	svg := string(b)
+	if !strings.HasPrefix(svg, "<svg ") {
+		t.Errorf("favicon does not start with <svg: %.20q", svg)
+	}
+	for _, v := range cspViolations {
+		if v.re.MatchString(svg) {
+			t.Errorf("favicon contains a %s", v.what)
+		}
+	}
+	for _, bad := range []string{"<script", "<foreignObject", "href=", "url(", "<animate"} {
+		if strings.Contains(svg, bad) {
+			t.Errorf("favicon contains %q", bad)
+		}
+	}
+}
+
+func TestLayoutLinksFavicon(t *testing.T) {
+	runPageCases(t, []pageCase{
+		{
+			name: "logged out",
+			page: "login.html",
+			data: map[string]any{},
+			want: []string{`<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">`},
+		},
+		{
+			name:  "logged in",
+			page:  "files.html",
+			data:  map[string]any{"User": &auth.User{Username: "u"}},
+			want:  []string{`rel="icon"`},
+			count: map[string]int{`rel="icon"`: 1},
+		},
+	})
 }
 
 func TestLayoutRendersFlash(t *testing.T) {

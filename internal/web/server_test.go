@@ -250,6 +250,7 @@ func TestStaticAssetsServed(t *testing.T) {
 		{"/static/mascot.js", "javascript"},
 		{"/static/fonts/nunito-latin-wght-normal.woff2", "font/woff2"},
 		{"/static/fonts/OFL.txt", "text/plain"},
+		{"/static/favicon.svg", "image/svg+xml"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {

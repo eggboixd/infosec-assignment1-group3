@@ -99,3 +99,13 @@ Missing keys in a `gin.H` are simply falsy in `if`/`with`.
 - **Alternatives:** horizontal scrolling inside the table; hiding columns.
 - **Why:** nothing is hidden or cut off on a phone, and it needs only CSS. A generated `content` value is
   not an inline style, so the CSP allows it.
+
+## 12. SVG favicon of Gembi
+- **Choice:** `static/favicon.svg`, Gembi's smiling face drawn with the same shapes as the partial, linked from the
+  layout with `<link rel="icon" type="image/svg+xml">`. Colours are presentation attributes, because a favicon is
+  loaded as an image and can't use `mascot.css`.
+- **Alternatives:** a `favicon.ico`/PNG set (binary files we would have to generate, with an extra tool); a
+  `/favicon.ico` route (only needed by browsers that ignore `<link rel="icon">`).
+- **Why:** one small text file that stays sharp at every size and can be reviewed like code. It is served from
+  `/static`, so the CSP's `img-src 'self'` covers it. An SVG opened directly could run script, so
+  `TestFaviconIsStaticSVG` fails if it ever gains a script, an event handler, an external reference or an animation.
