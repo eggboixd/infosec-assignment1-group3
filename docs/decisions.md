@@ -267,3 +267,158 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
   them.
 - **Memory clearing is best-effort** in a garbage-collected language (D13).
 - **A change between the two download passes is detected after some plaintext was streamed** (D9).
+
+---
+
+## Private data (`feature/private-data`)
+
+### D17. Which fields we store, and why they are personal data
+
+- **Decision:** the profile holds six fields: full name, NIK, date of birth, address, phone number and email. All six
+  are treated as personal data and encrypted.
+- **Legal basis:**
+  - *UU PDP No. 27/2022, Pasal 4(3):* general personal data includes full name and "data pribadi yang dikombinasikan
+    untuk mengidentifikasi seseorang" (data that identifies a person when combined).
+  - *GDPR Art. 4(1):* personal data is any information relating to an identifiable person, explicitly including a
+    name, an identification number, location data and online identifiers.
+  - The NIK is the most sensitive field: it is a lifelong national identifier and itself encodes the holder's region
+    and date of birth. Address is location data; phone and email are contact/online identifiers.
+- **Alternatives:** collecting more (gender, religion, marital status).
+- **Why not:** *data minimisation*: GDPR Art. 5(1)(c), and UU PDP Pasal 16(2)(a) (processing must be "terbatas dan
+  spesifik"). Six fields are enough to demonstrate field-level encryption, and we never collect *specific*
+  personal data from Pasal 4(2) (health, biometric, genetic, criminal records, children's data, personal finances).
+
+### D18. Field-level encryption, three independent copies per field
+
+- **Decision:** each field is encrypted on its own with `Encryptor.EncryptField`, once per algorithm (applying D1),
+  and stored as a `crypto.SealedSet`. One profile is 6 fields × 3 algorithms = 18 ciphertexts, each with its own DEK,
+  MAC key and IV.
+- **Alternatives:**
+  - *Encrypt the whole document as one blob* (for example BSON → ciphertext).
+  - *MongoDB's own Client-Side Field Level Encryption.*
+- **Why:**
+  - Per field mirrors the assignment ("store the user's private data in a DB, encrypted") and keeps the document
+    shape readable for the report: `full_name.aes`, `full_name.des`, …
+  - It reuses the exact code path the files use (D1–D9), so fields get the same IV/key freshness and
+    encrypt-then-MAC integrity.
+  - MongoDB CSFLE would replace our AES/DES/RC4 with AEAD_AES_256_CBC_HMAC_SHA_512 only, so it can't do the
+    comparison, and it needs extra infrastructure.
+- **Trade-off:** 18 key wraps per save. That is a few milliseconds, measured by D22.
+
+### D19. NIK uniqueness through a keyed blind index (HMAC-SHA256)
+
+- **Decision:** next to the encrypted NIK we store `nik_index = HMAC-SHA256(K_blind, NIK)`, where
+  `K_blind = DeriveKey(MASTER_KEY, "nik-blind-index")` (D11). The key is derived at startup and never stored.
+- **Problem it solves:** a NIK may belong to only one account, but the encrypted NIK uses a fresh key and IV every
+  time (D6), so equal NIKs never have equal ciphertexts and the database can't compare them.
+- **Alternatives:**
+  1. *Plain SHA-256(NIK).*
+  2. *Deterministic encryption* of the NIK (fixed key and IV).
+  3. *Decrypt every stored NIK and compare* on each save.
+  4. *No uniqueness check.*
+- **Why HMAC:**
+  - Against (1): NIKs are 16 digits but highly structured (6-digit region code, 6-digit date of birth with +40 for
+    women, 4-digit serial). An attacker with a database copy could hash every plausible NIK for a region and reverse
+    an unkeyed hash. With HMAC they also need `K_blind`, which is only derivable from `MASTER_KEY`.
+  - Against (2): deterministic CTR/RC4 reuses a keystream (D3, D5), which is exactly what we must never do.
+  - Against (3): O(number of users) decryptions per save, and still racy (see D20).
+  - A separate key (not the master key, not a DEK) means the deterministic index tells nothing about other keys (D11).
+- **Normalisation:** the NIK is trimmed and must be exactly 16 ASCII digits before hashing, so `" 3578…"` and
+  `"3578…"` give the same index. `nikBlindIndex` refuses to run with a key that isn't 32 bytes, so a missing key can
+  never silently produce an unkeyed hash.
+- **Trade-off:** the index is deterministic, so whoever has `MASTER_KEY` (and the database) can test whether a given
+  NIK is registered. That's inherent to any equality check and no worse than D2's existing assumption.
+
+### D20. The database enforces uniqueness, not Go code
+
+- **Decision:** a unique, sparse MongoDB index on `nik_index` (in the scaffold). A duplicate makes `Upsert` fail with
+  a duplicate-key error, which the store maps to `ErrNIKTaken` → HTTP 409 "This NIK is already registered to another
+  account."
+- **Alternative:** check "does any other profile have this index?" in Go, then insert.
+- **Why:** check-then-insert is a race: two simultaneous saves can both pass the check. The unique index makes the
+  check and the write one atomic operation.
+- **Privacy note:** the message does not say which account holds the NIK.
+
+### D21. Validation twice: Gin binding tags, then the service
+
+- **Decision:**
+  - The handler binds the form with the scaffold's `binding` tags (first gate).
+  - `Service.Save` trims every field and runs `validate`, which repeats those rules and adds: date of birth must be a
+    real date, not in the future and not before 1900; no control characters in names (line breaks allowed only in the
+    address); email must be a bare address (`net/mail` and nothing else, so `"Name <a@b.c>"` is rejected); NIK and
+    phone must be ASCII digits only.
+  - Messages are fixed, friendly sentences ("NIK must be exactly 16 digits."). They never contain the submitted value
+    or Gin's internal text (`Key: 'PrivateData.NIK' Error: …`).
+- **Alternatives:** binding tags only; or validation only in the service.
+- **Why:**
+  - The service must not trust its caller (defence in depth), and the tags can't express "not in the future".
+  - Plain-Go validation is testable without Gin and keeps Gin out of the service (CONTRIBUTING).
+  - Trimming first means `"   "` counts as empty and a pasted NIK with a trailing space still works.
+  - Error text may end up in logs, and the values are personal data, so the messages never echo them.
+- **Trade-off:** rules live in two places (tags and `validate`) plus the HTML `pattern`/`maxlength` attributes. The
+  limits are named constants in `validate.go` next to a comment saying they must match.
+
+### D22. Benchmarks: one record per profile operation per algorithm
+
+- **Decision:** `Save` records three `benchmark.Record`s (`encrypt`, one per algorithm) and `Get` records one
+  (`decrypt`, the chosen algorithm). Each covers the **whole profile** (all six fields); `Bytes` is the total
+  plaintext size and `FileKind` is empty, as `Record` documents for field operations. Records are stored only when
+  the operation succeeds, and a failure to store a record is logged but does not fail the user's request.
+- **Alternatives:** one record per field; no records for profiles.
+- **Why:** six ~20-byte samples per algorithm are mostly timer noise. One sample per profile is still small data, which
+  is the point: next to multi-megabyte files it shows the **fixed per-item overhead** (random key generation, key
+  wrapping, cipher set-up, HMAC) that dominates small inputs.
+- **What `CryptoDuration` means here (differs from D14):** `EncryptField`/`DecryptField` take no `context`, so the
+  `Envelope` can't add to the `crypto.Clock` itself. The profile service times each whole `EncryptField`/
+  `DecryptField` call and adds that to the clock inside `benchmark.Measure`. So for profiles, `CryptoDuration`
+  **includes** `crypto/rand` and key wrapping/unwrapping, which D14 excludes for files. The report must not compare
+  file and profile `CryptoDuration` directly. Measuring exactly like D14 would mean adding a `context` parameter to
+  `EncryptField`, which changes the shared `Encryptor` interface (a team decision).
+- **Algorithm order:** to get one record per algorithm, `Save` loops algorithm-outer, field-inner. The scaffold's
+  `sealAll` helper (field-outer) was therefore replaced by `sealField`/`openField`.
+
+### D23. Fail closed when stored data doesn't verify
+
+- **Decision:** if any field's copy for the chosen algorithm fails its MAC (`crypto.ErrAuthentication`) or is missing
+  (`ErrCorrupt`), `Get` returns **no** data and the page shows `error.html` with 422 "Your stored data failed its
+  integrity check". The log records user ID, algorithm and the error, never field values.
+- **Alternative:** show the fields that did verify and blank the rest.
+- **Why:** a partially tampered record can't be trusted as a whole (D12's rule: use none of it). The other
+  algorithms' copies are independent, so the user can still pick one that verifies.
+
+### D24. Post/Redirect/Get after saving
+
+- **Decision:** a successful `POST /profile` answers `303 See Other` → `/profile?alg=aes`. Failed saves re-render the
+  form (422 validation, 409 duplicate NIK, 500 other) with the submitted values and the messages, as `profile.html`
+  expects.
+- **Alternative:** re-render the page directly from the POST.
+- **Why:** after the redirect, the page shows the data **decrypted back from MongoDB**, which is the real confirmation
+  that the round trip works. Refreshing the page doesn't resubmit the form. A flash message ("Saved") needs sessions,
+  which belong to `feature/auth`.
+- **Note:** the form posts to `/profile` without the current `?alg=`, and templates are not changed in this branch,
+  so the redirect always goes to the default (AES).
+
+### D25. Updating keeps the original `_id` and `created_at`
+
+- **Decision:** `Save` loads the existing profile first and copies its `_id` and `created_at` into the new document;
+  `updated_at` is set to now.
+- **Alternative:** change `Store.Upsert` to use `$set`/`$setOnInsert`.
+- **Why:** `ReplaceOne` replaces the whole document, so without this `created_at` would be reset on every edit. Doing
+  it in the service keeps the scaffold's store unchanged.
+
+---
+
+## Known limitations (private data)
+
+- **No "delete my data".** UU PDP (Pasal 8) and GDPR (Art. 17) give the right to erasure. It isn't in this branch's
+  scope; adding it would be a `DELETE`-style route plus `Store.DeleteByUserID`, scoped to the logged-in user.
+- **Fields aren't bound to their owner or field name.** This is the crypto limitation "No binding to file or owner"
+  applied to fields: someone who can *write* to MongoDB could copy another user's `nik` set into their own profile, or
+  swap two fields, and it would still verify and decrypt. Fixing it needs associated data (user ID + field name) in
+  the MAC, i.e. an `Encryptor` interface change.
+- **Until `feature/auth` lands, every request is the stub user `dev-user`.** Per-user isolation is enforced and tested
+  in the service (`Get` always queries by the session's user ID), but end-to-end it can only be checked once real
+  sessions exist.
+- **Any duplicate-key error from `Upsert` is reported as "NIK already registered"** (scaffold behaviour). The only other
+  unique index is `user_id`, which can only collide if the same user's first two saves race; the user then sees a
+  misleading message once and can save again.
