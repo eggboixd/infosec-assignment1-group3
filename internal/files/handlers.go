@@ -16,8 +16,9 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-// TODO(feature/file-storage): call h.svc.List and render files.html
-// (TODO(feature/frontend) for the template).
+// TODO(feature/file-storage): call h.svc.List and render files.html with
+// "User" (auth.CurrentUser) and "JustLoggedIn" (auth.JustLoggedIn(c), true
+// once after login so Gembi plays its unlock animation).
 func (h *Handler) list(c *gin.Context) {
 	c.String(http.StatusNotImplemented, "not implemented")
 }

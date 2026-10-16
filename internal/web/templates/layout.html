@@ -4,8 +4,8 @@
        .Title  page title
        .User   the logged-in *auth.User; shows the nav
        .Flash  one message with .Kind ("success", "error" or "info") and .Message.
-               Keeping it across the redirect after a POST needs sessions:
-               TODO(feature/auth): set .Flash from a one-time session value.
+               Handlers pass auth.TakeFlash(c), which reads and clears the
+               one-time message set before a redirect.
 
      All CSS and JS are external files: the CSP forbids inline styles,
      scripts and event handlers. */}}

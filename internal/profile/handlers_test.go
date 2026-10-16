@@ -20,14 +20,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
+	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/crypto"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/web"
 )
 
-// devUserID is the user the auth.RequireAuth stub injects until
-// feature/auth lands.
+// devUserID is the user the test engine logs every request in as.
 var devUserID = bson.ObjectID{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+
+// loginAsDevUser stands in for auth.RequireAuth with a logged-in session.
+func loginAsDevUser(c *gin.Context) {
+	auth.SetCurrentUser(c, &auth.User{ID: devUserID, Username: "dev-user"})
+}
 
 // store is a minimal in-memory profile store enforcing the NIK unique index.
 type store struct {
@@ -82,6 +87,7 @@ func newFixture(t *testing.T) *fixture {
 		Mode:         gin.TestMode,
 		MaxBodyBytes: 1 << 20,
 		Features:     []web.RouteRegistrar{profile.NewHandler(svc)},
+		RequireAuth:  loginAsDevUser,
 	})
 	if err != nil {
 		t.Fatal(err)
