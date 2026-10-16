@@ -83,15 +83,19 @@ func run() error {
 		return err
 	}
 
-	// TODO(feature/private-data): derive with
-	// crypto.DeriveKey(cfg.MasterKey, "nik-blind-index") once implemented.
-	var nikBlindKey []byte
+	// The NIK blind-index key is an HKDF subkey of the master key: it is
+	// never stored, and the "nik-blind-index" label makes it unrelated to
+	// every other key derived from the same master key.
+	nikBlindKey, err := crypto.DeriveKey(cfg.MasterKey, "nik-blind-index")
+	if err != nil {
+		return err
+	}
 
 	db := mongo.Database()
 	benchStore := benchmark.NewStore(db.Collection(mongodb.BenchmarksCollection))
 
 	authSvc := auth.NewService(auth.NewStore(db.Collection(mongodb.UsersCollection)))
-	profileSvc := profile.NewService(profile.NewStore(db.Collection(mongodb.ProfilesCollection)), enc, nikBlindKey)
+	profileSvc := profile.NewService(profile.NewStore(db.Collection(mongodb.ProfilesCollection)), enc, nikBlindKey, benchStore)
 	filesSvc := files.NewService(files.NewStore(db.Collection(mongodb.FilesCollection)), objects, enc, benchStore)
 
 	engine, err := web.NewEngine(web.Options{

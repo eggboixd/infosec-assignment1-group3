@@ -35,7 +35,8 @@ func (p *authProbe) middleware(c *gin.Context) {
 }
 
 // newTestEngine builds the real engine with stub handlers. The stubs never
-// touch their services, so nil services are safe.
+// touch their services, so nil services are safe. Implemented routes (such as
+// /profile, tested in internal/profile) are not requested here.
 func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 	t.Helper()
 	probe := &authProbe{original: auth.RequireAuth()}
@@ -65,8 +66,6 @@ func TestStubRoutesReturnNotImplemented(t *testing.T) {
 		{http.MethodPost, "/register", false},
 		{http.MethodPost, "/login", false},
 		{http.MethodPost, "/logout", true},
-		{http.MethodGet, "/profile", true},
-		{http.MethodPost, "/profile", true},
 		{http.MethodGet, "/files", true},
 		{http.MethodPost, "/files", true},
 		{http.MethodGet, "/files/0123456789abcdef01234567/download?alg=aes", true},
