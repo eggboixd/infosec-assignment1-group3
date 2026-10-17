@@ -40,6 +40,7 @@
 .gembi--nav { width: 28px; }
 .gembi--md { width: 96px; }
 .gembi--lg { width: 132px; }
+.gembi--xl { width: 168px; }
 
 /* ---------- Parts ---------- */
 
@@ -111,6 +112,7 @@
 .mascot--angry :is(.m-eyes-open, .m-brows-angry, .m-mouth-frown, .m-blush),
 .mascot--unlocked :is(.m-eyes-happy, .m-mouth-open, .m-blush, .m-sparkles),
 .mascot--smiling :is(.m-eyes-open, .m-mouth-smile, .m-blush),
+.mascot--hello :is(.m-eyes-open, .m-mouth-smile, .m-blush),
 .mascot--busy :is(.m-eyes-open, .m-brows-busy, .m-mouth-flat, .m-sweat, .m-gear),
 .mascot--happy :is(.m-eyes-happy, .m-mouth-open, .m-blush, .m-sparkles),
 .mascot--sleepy :is(.m-eyes-closed, .m-mouth-o, .m-zzz),
@@ -147,6 +149,10 @@
   transform-origin: center;
   animation: m-blink 4.2s ease-in-out infinite;
 }
+
+/* hello: the landing page greeting - a wave (tilt left and right) and one
+   bounce, once. mascot.js settles back to smiling afterwards. */
+.mascot--hello .m-figure { animation: m-hello 1.1s ease-in-out both; }
 
 /* busy: locking it up - shackle clamps, body wiggles, gear spins */
 .mascot--busy .m-figure { animation: m-wiggle 0.9s ease-in-out infinite; }
@@ -212,6 +218,14 @@
   20% { transform: translateY(0) scale(1.06, 0.94); }
   50% { transform: translateY(-10px) scale(0.97, 1.03); }
   80% { transform: translateY(0) scale(1.03, 0.97); }
+}
+
+@keyframes m-hello {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  20% { transform: translateY(-10px) rotate(-8deg); }
+  40% { transform: translateY(0) rotate(7deg); }
+  60% { transform: translateY(-5px) rotate(-6deg); }
+  80% { transform: translateY(0) rotate(4deg); }
 }
 
 @keyframes m-blink {
