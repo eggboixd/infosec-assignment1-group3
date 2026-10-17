@@ -1,0 +1,20 @@
+This is a fake sample text file used to compare AES, DES and RC4 ciphertext. It contains no real personal data of any kind. Natural language has low entropy because some letters and words repeat often.
+A good cipher hides that structure completely, so the output looks random. Secure Store encrypts every item three times, once with each algorithm. This is a fake sample text file used to compare AES, DES and RC4 ciphertext.
+It contains no real personal data of any kind. Natural language has low entropy because some letters and words repeat often. A good cipher hides that structure completely, so the output looks random.
+Secure Store encrypts every item three times, once with each algorithm. This is a fake sample text file used to compare AES, DES and RC4 ciphertext. It contains no real personal data of any kind.
+Natural language has low entropy because some letters and words repeat often. A good cipher hides that structure completely, so the output looks random. Secure Store encrypts every item three times, once with each algorithm.
+This is a fake sample text file used to compare AES, DES and RC4 ciphertext. It contains no real personal data of any kind. Natural language has low entropy because some letters and words repeat often.
+A good cipher hides that structure completely, so the output looks random. Secure Store encrypts every item three times, once with each algorithm. This is a fake sample text file used to compare AES, DES and RC4 ciphertext.
+It contains no real personal data of any kind. Natural language has low entropy because some letters and words repeat often. A good cipher hides that structure completely, so the output looks random.
+Secure Store encrypts every item three times, once with each algorithm. This is a fake sample text file used to compare AES, DES and RC4 ciphertext. It contains no real personal data of any kind.
+Natural language has low entropy because some letters and words repeat often. A good cipher hides that structure completely, so the output looks random. Secure Store encrypts every item three times, once with each algorithm.
+This is a fake sample text file used to compare AES, DES and RC4 ciphertext. It contains no real personal data of any kind. Natural language has low entropy because some letters and words repeat often.
+A good cipher hides that structure completely, so the output looks random. Secure Store encrypts every item three times, once with each algorithm. This is a fake sample text file used to compare AES, DES and RC4 ciphertext.
+It contains no real personal data of any kind. Natural language has low entropy because some letters and words repeat often. A good cipher hides that structure completely, so the output looks random.
+Secure Store encrypts every item three times, once with each algorithm. This is a fake sample text file used to compare AES, DES and RC4 ciphertext. It contains no real personal data of any kind.
+Natural language has low entropy because some letters and words repeat often. A good cipher hides that structure completely, so the output looks random. Secure Store encrypts every item three times, once with each algorithm.
+This is a fake sample text file used to compare AES, DES and RC4 ciphertext. It contains no real personal data of any kind. Natural language has low entropy because some letters and words repeat often.
+A good cipher hides that structure completely, so the output looks random. Secure Store encrypts every item three times, once with each algorithm. This is a fake sample text file used to compare AES, DES and RC4 ciphertext.
+It contains no real personal data of any kind. Natural language has low entropy because some letters and words repeat often. A good cipher hides that structure completely, so the output looks random.
+Secure Store encrypts every item three times, once with each algorithm. This is a fake sample text file used to compare AES, DES and RC4 ciphertext. It contains no real personal data of any kind.
+Natural language has low entropy because some letters and words repeat often. A good cipher hides that structure completely, so the output looks random. 
