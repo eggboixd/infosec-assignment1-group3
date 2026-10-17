@@ -142,13 +142,13 @@ func WriteMarkdown(w io.Writer, in ReportInput) error {
 	}
 
 	b.WriteString("## 7. What this tells us, in simple words\n\n")
-	b.WriteString("- **All three look random.** For every file of a few kilobytes or more, ciphertext entropy is about 8 bits per byte and chi-square sits near 255, whichever cipher is used. ")
+	b.WriteString("- **All three look random.** For every file of about 2 KB or more, ciphertext entropy is within a few hundredths of the maximum possible for that length (close to 8 bits per byte for the larger files) and chi-square stays in the range of random data (about 255), whichever cipher is used. ")
 	b.WriteString("Keys are fresh on every run, so the exact numbers change a little each time; with this many tests, about one in twenty chi-square values lands above 293 by pure chance, and that is not a weakness. ")
-	b.WriteString("Plaintext does not: text, PDF, DOCX and the repetitive file are far from 8, and the repetitive file is the extreme. A statistical test on a single ciphertext cannot tell AES, DES and RC4 apart here.\n")
-	b.WriteString("- **Compressed files start high.** PNG, JPEG, DOCX, XLSX and MP4 are already compressed, so their *plaintext* entropy is high too. Encryption does not raise it much; it removes the structure (file signatures, headers) that still shows in the first bytes.\n")
+	b.WriteString("Plaintext is very different: how far it is from 8 depends on the file (the repetitive file and the small MP4 clip, which is mostly zero bytes, are far below; the PNG and JPEG are closest). A statistical test on a single ciphertext cannot tell AES, DES and RC4 apart here.\n")
+	b.WriteString("- **Encryption evens everything out.** Whatever the plaintext entropy was, the ciphertext lands at about the same level. It also removes the structure that still shows in the first bytes (file signatures such as `%PDF`, `PK`, `ftyp`).\n")
 	b.WriteString("- **Differences between the ciphers are not in the ciphertext statistics.** They are in key size and security: AES-256 has a 256-bit key; DES has 56 effective bits and can be brute-forced; RC4 has known keystream biases (they need very large samples to see, far more than these files) and is banned in TLS by RFC 7465. ")
 	b.WriteString("The ciphertext looking random does not make DES or RC4 secure.\n")
-	b.WriteString("- **Same size out as in.** No cipher changes the length of the ciphertext. Overhead is the per-item metadata, a little smaller for RC4 (no IV) and DES (8-byte IV) than for AES (16-byte IV).\n")
+	b.WriteString("- **Same size out as in.** No cipher changes the length of the ciphertext. Overhead is the per-item metadata (IV, two wrapped keys, HMAC tag): smallest for DES (8-byte key and IV), then RC4 (32-byte key, no IV), then AES (32-byte key, 16-byte IV).\n")
 	b.WriteString("- **No diffusion, so integrity needs its own tag.** One plaintext bit changes one ciphertext bit in all three, and the HMAC tag is what catches tampering.\n")
 	b.WriteString("- **Mode matters more than cipher.** The ECB pictures show the same AES leaking the image outline, while AES in CTR mode gives noise.\n")
 
