@@ -191,7 +191,13 @@ func TestBMPToPNGAndPixels(t *testing.T) {
 func TestParseBMPRejectsBadInput(t *testing.T) {
 	bad := testBMP(4, 4)
 	bad[28] = 8 // 8 bits per pixel
+	huge := testBMP(4, 4)
+	huge[21], huge[25] = 0x7f, 0x7f // width and height ~2^31: would overflow stride*height
+	zero := testBMP(4, 4)
+	zero[22], zero[23], zero[24], zero[25] = 0, 0, 0, 0 // height 0
 	for name, in := range map[string][]byte{
+		"huge":      huge,
+		"zero":      zero,
 		"empty":     nil,
 		"not a bmp": []byte(strings.Repeat("x", 100)),
 		"8-bit":     bad,
@@ -258,5 +264,14 @@ func TestRepeatedBlocks(t *testing.T) {
 		if got := RepeatedBlocks(tt.data); got != tt.want {
 			t.Errorf("%s: got %d, want %d", tt.name, got, tt.want)
 		}
+	}
+}
+
+func TestBMPTopDownIsAccepted(t *testing.T) {
+	bm := testBMP(8, 4)
+	// Height -4 as two's complement: rows stored top-down.
+	bm[22], bm[23], bm[24], bm[25] = 0xfc, 0xff, 0xff, 0xff
+	if _, err := BMPToPNG(bm); err != nil {
+		t.Errorf("top-down BMP: %v", err)
 	}
 }

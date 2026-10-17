@@ -16,6 +16,9 @@ import (
 // bmpHeaderMin is the size of the BMP file header (14) plus BITMAPINFOHEADER (40).
 const bmpHeaderMin = 54
 
+// maxBMPDimension caps width and height. Real samples are a few hundred pixels.
+const maxBMPDimension = 16384
+
 // ErrUnsupportedBMP is returned for anything but an uncompressed 24-bit BMP.
 var ErrUnsupportedBMP = errors.New("cipheranalysis: only uncompressed 24-bit BMP files are supported")
 
@@ -31,18 +34,21 @@ func parseBMP(data []byte) (bmp, error) {
 		return bmp{}, ErrUnsupportedBMP
 	}
 	le := binary.LittleEndian
-	b := bmp{
-		pixelOffset: int(le.Uint32(data[10:14])),
-		width:       int(int32(le.Uint32(data[18:22]))),
-		height:      int(int32(le.Uint32(data[22:26]))),
+	// Width and height are signed 32-bit in the file. A negative height means
+	// the rows are stored top-down. Reading them as uint32 and negating
+	// (two's complement) avoids signed conversions, and the size cap below
+	// keeps stride*height far from integer overflow on any platform.
+	w, h := le.Uint32(data[18:22]), le.Uint32(data[22:26])
+	b := bmp{pixelOffset: int(le.Uint32(data[10:14])), bottomUp: h < 1<<31}
+	if !b.bottomUp {
+		h = -h
 	}
-	if b.height < 0 {
-		b.height = -b.height
-	} else {
-		b.bottomUp = true
+	if w == 0 || h == 0 || w > maxBMPDimension || h > maxBMPDimension {
+		return bmp{}, ErrUnsupportedBMP
 	}
+	b.width, b.height = int(w), int(h)
 	bpp, compression := le.Uint16(data[28:30]), le.Uint32(data[30:34])
-	if bpp != 24 || compression != 0 || b.width <= 0 || b.height <= 0 {
+	if bpp != 24 || compression != 0 {
 		return bmp{}, ErrUnsupportedBMP
 	}
 	if b.pixelOffset < bmpHeaderMin || b.pixelOffset+b.stride()*b.height > len(data) {
