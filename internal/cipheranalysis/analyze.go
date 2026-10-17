@@ -43,6 +43,11 @@ type Row struct {
 	// real encryptions of the same file (fresh key and IV each time).
 	TwiceDiffPercent float64
 
+	// PlainHist and CipherHist are the byte histograms behind the entropy and
+	// chi-square numbers, kept for the histogram chart.
+	PlainHist  [256]int
+	CipherHist [256]int
+
 	PlainHex  string // first HexPrefixLen bytes
 	CipherHex string
 
@@ -110,6 +115,8 @@ func analyzeOne(ctx context.Context, enc crypto.Encryptor, alg crypto.Algorithm,
 		CipherChi:         ChiSquare(ct),
 		ChiReliable:       ChiSquareReliable(ct),
 		TwiceDiffPercent:  diff,
+		PlainHist:         Histogram(plain),
+		CipherHist:        Histogram(ct),
 		PlainHex:          hexPrefix(plain),
 		CipherHex:         hexPrefix(ct),
 		OneBitCipherBytes: NotApplicable,
