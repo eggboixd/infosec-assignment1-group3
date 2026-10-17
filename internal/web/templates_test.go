@@ -107,6 +107,30 @@ func runPageCases(t *testing.T, cases []pageCase) {
 	}
 }
 
+func TestHomeTemplate(t *testing.T) {
+	runPageCases(t, []pageCase{
+		{
+			name: "landing page: waves once, then smiles; calls to action and three cards",
+			page: "home.html",
+			data: map[string]any{},
+			mood: "hello",
+			want: []string{
+				`data-base-mood="smiling"`, "<h1 id=\"home-title\">Secure Store</h1>",
+				`href="/login"`, `href="/register"`, `href="/benchmarks"`,
+				"AES-256", "DES", "RC4", "CTR", "HMAC", "ID card",
+			},
+			notWant: []string{"site-nav"},
+			count:   map[string]int{`class="card feature `: 3},
+		},
+		{
+			name: "with a user the nav shows",
+			page: "home.html",
+			data: map[string]any{"User": &auth.User{Username: "alice"}},
+			want: []string{"site-nav", "alice"},
+		},
+	})
+}
+
 func TestAuthTemplates(t *testing.T) {
 	runPageCases(t, []pageCase{
 		{
@@ -388,7 +412,7 @@ func TestTemplatesAreCSPSafe(t *testing.T) {
 		"Status":       404,
 		"Message":      "Not found.",
 	}
-	for _, page := range []string{"login.html", "register.html", "files.html", "profile.html", "benchmarks.html", "error.html"} {
+	for _, page := range []string{"home.html", "login.html", "register.html", "files.html", "profile.html", "benchmarks.html", "error.html"} {
 		for _, data := range []map[string]any{{}, full} {
 			out := renderPage(t, page, data)
 			for _, v := range cspViolations {

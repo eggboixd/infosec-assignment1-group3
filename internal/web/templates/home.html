@@ -1,0 +1,29 @@
+{{define "home.html"}}{{template "header" .}}
+{{/* Landing page for visitors who are not logged in (showHome in home.go).
+     No data needed. Gembi waves once ("hello"), then settles to smiling. It is
+     decorative: everything it shows is also written in the text. */}}
+<section class="card hero" aria-labelledby="home-title">
+  <div class="gembi gembi--xl" data-gembi data-base-mood="smiling">{{template "mascot" "hello"}}</div>
+  <h1 id="home-title">Secure Store</h1>
+  <p class="hero-pitch">Keep your private data, ID card, documents and videos locked up. Gembi encrypts everything three times.</p>
+  <div class="hero-actions">
+    <a class="btn btn--primary" href="/login">Log in</a>
+    <a class="btn" href="/register">Register</a>
+  </div>
+</section>
+
+<ul class="feature-grid" aria-label="What Secure Store does">
+  <li class="card feature feature--peach">
+    <h2>Store it safely</h2>
+    <p>Save your private data, your ID card, PDF, Word and Excel files and videos in one place. You need a username and password to see any of it.</p>
+  </li>
+  <li class="card feature feature--mint">
+    <h2>Encrypted three times</h2>
+    <p>Every item is stored with AES-256, DES and RC4, in CTR mode (never ECB) with an HMAC that catches tampering. You choose which copy to decrypt.</p>
+  </li>
+  <li class="card feature feature--lavender">
+    <h2>Compare the ciphers</h2>
+    <p>See how fast each cipher is on the <a href="/benchmarks">benchmarks page</a> (log in to open it).</p>
+  </li>
+</ul>
+{{template "footer" .}}{{end}}

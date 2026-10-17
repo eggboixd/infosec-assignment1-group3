@@ -59,9 +59,7 @@ func NewEngine(opts Options) (*gin.Engine, error) {
 	public := r.Group("/")
 	protected := r.Group("/", requireAuth)
 
-	protected.GET("/", func(c *gin.Context) {
-		c.Redirect(http.StatusSeeOther, "/files")
-	})
+	public.GET("/", showHome)
 	for _, f := range opts.Features {
 		f.RegisterRoutes(public, protected)
 	}

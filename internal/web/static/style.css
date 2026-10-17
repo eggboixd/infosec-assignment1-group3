@@ -307,6 +307,27 @@ button:disabled { opacity: 0.7; cursor: progress; }
 .auth-card .btn--primary { width: 100%; margin-top: 0.25rem; }
 .auth-switch { margin-top: 1rem; text-align: center; }
 
+/* ---------- Home (landing page) ---------- */
+
+.hero { text-align: center; padding: 2rem 1.25rem; }
+.hero .gembi { margin: 0 auto 1rem; }
+.hero-pitch { max-width: 34rem; margin: 0 auto 1.25rem; color: var(--ink-soft); font-size: 1.1rem; }
+.hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
+.hero-actions .btn { min-height: 2.75rem; min-width: 8rem; }
+
+.feature-grid {
+  display: grid;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.feature h2 { margin-bottom: 0.4rem; }
+.feature--peach { background: var(--peach); }
+.feature--mint { background: var(--mint); }
+.feature--lavender { background: var(--lavender); }
+/* The link on the lavender card: accent on lavender is checked in theme_test.go. */
+
 /* ---------- Empty and error states ---------- */
 
 .empty-state {
@@ -407,6 +428,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (min-width: 700px) {
   .card { padding: 1.5rem 1.75rem; }
   .page-head .gembi { width: 96px; }
+  .hero { padding: 2.5rem 1.75rem; }
+  .feature-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 /* htmx request indicators (htmx's own inline styles are disabled in layout.html). */
