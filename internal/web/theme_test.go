@@ -233,6 +233,7 @@ func TestThemeContrast(t *testing.T) {
 		{"accent", "card", text, "links, download pills"},
 		{"accent", "page", text, "links outside cards"},
 		{"accent", "accent-soft", text, "download pill on hover"},
+		{"accent", "lavender", text, "benchmarks link on the home card"},
 		{"on-accent", "accent", text, "primary button"},
 		{"on-accent", "accent-hover", text, "primary button on hover"},
 		{"danger", "btn", text, "delete button"},

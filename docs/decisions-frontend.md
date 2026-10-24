@@ -132,3 +132,29 @@ Missing keys in a `gin.H` are simply falsy in `if`/`with`.
   - `TestThemeContrast` recomputes the WCAG ratio of every text/background pair from the tokens;
   - `TestFaviconMatchesMascot` fails if `favicon.svg` uses a colour that is not one of Gembi's variables. The favicon
     can't load `mascot.css`, so it repeats the colours and could otherwise drift.
+
+## 14. A public landing page at "/", logged-in users go to /files
+- **Choice:** `GET /` moved from the protected group to the public one (`showHome` in `internal/web/home.go`). A visitor
+  sees `home.html`: Gembi waving, the app name, a one-line pitch, "Log in" and "Register" buttons, and three cards (what
+  is stored, the three ciphers with CTR + HMAC, the benchmarks page). If a user is already on the context it redirects to
+  `/files`.
+- **Alternatives:** keep `/` protected, so logged-out visitors are bounced to `/login` (no front door); a dashboard for
+  logged-in users.
+- **Why:**
+  - **Redirect, not a dashboard:** the scaffold never mentions a dashboard, and `/files` already greets the user and is
+    first in the nav. A dashboard would duplicate it and need new data, which is backend logic outside this branch.
+  - **Known gap:** `auth.RequireAuth` has not run on a public route, so `auth.CurrentUser` is empty and everyone sees the
+    landing page for now. This is a `TODO(feature/auth)`: once sessions can be read on public routes without aborting,
+    the redirect works with no change here. That redirect has no test yet for the same reason (no way to set a user from
+    outside package `auth`).
+  - **The text only promises what is built:** the benchmarks card says "log in to open it", because `/benchmarks` is
+    protected.
+
+## 15. A one-shot "hello" mood for Gembi
+- **Choice:** a new mood `hello` (smiling face, one tilt-and-bounce wave, 1.1 s). `mascot.js` settles it back to
+  `smiling` after 1.3 s, like `angry` and `unlocked`. The landing page also has a larger size, `gembi--xl`.
+- **Alternatives:** reuse `unlocked` (means "you just logged in", and would be wrong for a stranger); a keyframe only on
+  the landing page (a second place that animates Gembi, outside the mood system of decision 2).
+- **Why:** one class swap, all rules in `mascot.css`, and reduced motion is already covered by the `.mascot *` rule, so
+  the page keeps a static smiling face. The new text/background pair (accent on lavender) was added to
+  `TestThemeContrast`.

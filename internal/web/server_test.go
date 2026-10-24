@@ -129,16 +129,31 @@ func TestAuthPagesRender(t *testing.T) {
 	}
 }
 
-func TestRootRedirectsToFiles(t *testing.T) {
+// "/" is public: a visitor without a session sees the landing page.
+// TODO(feature/auth): test that a logged-in user is redirected to /files.
+// That needs a way to put a user on the context from outside package auth.
+func TestRootRendersLandingPage(t *testing.T) {
 	r, probe := newTestEngine(t, 1<<20)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
 
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/files" {
-		t.Errorf("got %d Location=%q, want 303 /files", w.Code, w.Header().Get("Location"))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
 	}
-	if probe.hits != 1 {
-		t.Errorf("RequireAuth ran %d times, want 1", probe.hits)
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Errorf("Content-Type = %q, want text/html", ct)
+	}
+	if w.Header().Get("Content-Security-Policy") == "" {
+		t.Error("missing Content-Security-Policy header")
+	}
+	body := w.Body.String()
+	for _, want := range []string{"mascot--hello", `href="/login"`, `href="/register"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body is missing %q", want)
+		}
+	}
+	if probe.hits != 0 {
+		t.Errorf("RequireAuth ran %d times on a public page, want 0", probe.hits)
 	}
 }
 
@@ -205,7 +220,7 @@ func TestTemplatesRender(t *testing.T) {
 		t.Fatalf("loadTemplates: %v", err)
 	}
 	data := map[string]any{"Title": "Test", "User": &auth.User{Username: "u"}}
-	for _, name := range []string{"login.html", "register.html", "profile.html", "files.html", "benchmarks.html", "error.html"} {
+	for _, name := range []string{"home.html", "login.html", "register.html", "profile.html", "files.html", "benchmarks.html", "error.html"} {
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
 			t.Errorf("execute %s: %v", name, err)

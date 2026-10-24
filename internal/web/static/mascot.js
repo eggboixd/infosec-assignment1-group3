@@ -22,9 +22,9 @@
   const svg = stage && stage.querySelector(".mascot");
   if (!svg) return;
 
-  const MOODS = ["suspicious", "covering", "angry", "unlocked", "smiling", "busy", "happy", "sleepy", "confused"];
+  const MOODS = ["suspicious", "covering", "angry", "unlocked", "smiling", "busy", "happy", "sleepy", "confused", "hello"];
   // How long the one-shot moods play before settling (matches mascot.css).
-  const ONE_SHOT_MS = { angry: 1400, unlocked: 2200 };
+  const ONE_SHOT_MS = { angry: 1400, unlocked: 2200, hello: 1300 };
   const HAPPY_MS = 2500;
 
   let base = MOODS.includes(stage.dataset.baseMood) ? stage.dataset.baseMood : "smiling";
