@@ -9,7 +9,7 @@ Stored data:
 3. Documents (PDF, DOC, DOCX, XLS, XLSX)
 4. Videos (MP4, WebM)
 
-> **Status:** cryptography, the frontend, private data, and authentication (accounts, sessions, CSRF protection) are implemented. The upload/download pipeline and benchmarks are stubs that return `501 Not Implemented`. See [Team branches](#team-branches).
+> **Status:** cryptography, the frontend, private data, authentication (accounts, sessions, CSRF protection) and encrypted file storage (streaming upload, download and delete) are implemented. The benchmarks page is a stub that returns `501 Not Implemented`. See [Team branches](#team-branches).
 
 ## Architecture
 
