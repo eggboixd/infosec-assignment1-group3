@@ -143,10 +143,8 @@ Missing keys in a `gin.H` are simply falsy in `if`/`with`.
 - **Why:**
   - **Redirect, not a dashboard:** the scaffold never mentions a dashboard, and `/files` already greets the user and is
     first in the nav. A dashboard would duplicate it and need new data, which is backend logic outside this branch.
-  - **Known gap:** `auth.RequireAuth` has not run on a public route, so `auth.CurrentUser` is empty and everyone sees the
-    landing page for now. This is a `TODO(feature/auth)`: once sessions can be read on public routes without aborting,
-    the redirect works with no change here. That redirect has no test yet for the same reason (no way to set a user from
-    outside package `auth`).
+  - **Logged-in users:** `auth.LoadSession` (from `feature/auth`) loads the session on every request, public routes
+    included, so the redirect works with no change here. `TestRootRedirectsLoggedInUser` covers it.
   - **The text only promises what is built:** the benchmarks card says "log in to open it", because `/benchmarks` is
     protected.
 

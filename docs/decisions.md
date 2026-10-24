@@ -521,3 +521,55 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
 - **No multi-factor authentication.**
 - **Rate limits are per process** (D29) and reset when the app restarts.
 
+
+## File storage (`feature/file-storage`)
+
+### D32. Uploads are read once and fanned out to three encrypting streams
+
+- **Decision:** the handler reads the multipart body with `Request.MultipartReader()`. The plaintext is copied once
+  through `io.MultiWriter` into one `io.Pipe` per algorithm. For each algorithm, one goroutine encrypts from its pipe
+  into a second pipe, and another streams that ciphertext to MinIO (`PutObject` with unknown size, so minio-go uses
+  a multipart upload). The metadata record, with the filename encrypted by each algorithm, is inserted only after all
+  three objects are stored. Object keys are `<owner id>/<file id>/<alg>`, so they reveal nothing about the file.
+- **Alternatives:** buffer the file in memory or a temporary file and encrypt it three times; upload the plaintext
+  once and encrypt it in a background job.
+- **Why:** nothing larger than the pipe buffers is held in memory, so a 2 GiB video needs no more memory than an ID
+  card. Measured in the Docker app: a 300 MiB video uploads in about 30 s with a peak app memory of 124 MiB. No
+  plaintext ever touches the disk or MinIO.
+- **Failure handling:** any error closes every pipe with that error, so all goroutines stop. The objects already
+  written are then deleted and no record is inserted. `Put` runs on a context detached from the request
+  (`context.WithoutCancel`): when the client disconnects, net/http cancels the request context, and minio-go aborts
+  the failed multipart upload with `Put`'s context, so a cancelled one would leave the incomplete upload in MinIO.
+  Benchmark records are saved the same way, with a 5 s timeout, because a client that closes the connection as soon
+  as it has the last byte also cancels the request.
+- **Trade-offs:** the slowest cipher (DES) sets the upload speed, because the copy waits for all three pipes. One
+  upload runs six goroutines.
+- **Downloads:** verify-then-decrypt (D9). Headers are prepared first, but nothing is sent until the HMAC has been
+  checked, so a tampered object returns 422 with no file bytes. Downloads are always `Content-Disposition:
+  attachment` with `Cache-Control: no-store`, and the filename is escaped by `mime.FormatMediaType`.
+
+### D33. File type is detected from the extension and the content, with a size limit per kind
+
+- **Decision:** the browser's `Content-Type` is ignored. An upload is accepted only if its extension is allowed for
+  its kind *and* its first 512 bytes match that extension: `http.DetectContentType` for JPEG, PNG, PDF, MP4 and WebM;
+  the ZIP signature for DOCX/XLSX; the OLE2 signature for DOC/XLS. Size limits are 10 MiB for an ID card, 50 MiB for a
+  document and 2 GiB for a video. A larger file returns 413 and is cleaned up like any other failure.
+- **Alternatives:** trust the browser type; sniff the content only; parse each format fully.
+- **Why:** the browser type and the extension are both chosen by the uploader. Sniffing alone cannot tell DOCX from
+  XLSX (both are ZIP) or DOC from XLS (both are OLE2). Requiring both to agree rejects a PDF renamed to `.png` and
+  random bytes named `.docx`.
+- **Trade-offs:** a magic-byte check is not validation. Any ZIP named `.docx` is accepted. This is acceptable because
+  files are only ever returned as downloads to their owner, never rendered inline.
+
+---
+
+## Known limitations (file storage)
+
+- **No resumable uploads.** An interrupted upload is discarded and must be restarted.
+- **A crash mid-upload can leave orphaned objects.** The cleanup runs in the request, so if the app process dies
+  between storing the objects and inserting the record, those objects stay in MinIO with no record. A periodic job
+  could delete objects whose file id has no record.
+- **Deleting is not atomic.** Objects are deleted before the record. If one object delete fails, the record is kept so
+  the user can retry, but the other copies may already be gone, and downloading them returns an error.
+- **The list decrypts every filename on each page load.** This is fine for tens of files per user; there is no
+  pagination.
