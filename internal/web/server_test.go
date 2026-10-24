@@ -12,7 +12,6 @@ import (
 
 	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/benchmark"
-	"github.com/eggboixd/infosec-assignment1-group3/internal/files"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
 )
 
@@ -49,7 +48,7 @@ func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 		Features: []RouteRegistrar{
 			auth.NewHandler(nil, nil),
 			profile.NewHandler(nil),
-			files.NewHandler(nil),
+			stubFiles{},
 			benchmark.NewHandler(nil),
 		},
 		RequireAuth: probe.middleware,
@@ -58,6 +57,19 @@ func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 		t.Fatalf("NewEngine: %v", err)
 	}
 	return r, probe
+}
+
+// stubFiles mounts the file routes with handlers that only answer 501.
+// These tests exercise the engine's middleware (auth, body limits, CSRF),
+// not the files feature, which is tested in internal/files.
+type stubFiles struct{}
+
+func (stubFiles) RegisterRoutes(_, protected *gin.RouterGroup) {
+	stub := func(c *gin.Context) { c.Status(http.StatusNotImplemented) }
+	protected.GET("/files", stub)
+	protected.POST("/files", stub)
+	protected.GET("/files/:id/download", stub)
+	protected.DELETE("/files/:id", stub)
 }
 
 func TestStubRoutesReturnNotImplemented(t *testing.T) {
@@ -130,8 +142,6 @@ func TestAuthPagesRender(t *testing.T) {
 }
 
 // "/" is public: a visitor without a session sees the landing page.
-// TODO(feature/auth): test that a logged-in user is redirected to /files.
-// That needs a way to put a user on the context from outside package auth.
 func TestRootRendersLandingPage(t *testing.T) {
 	r, probe := newTestEngine(t, 1<<20)
 	w := httptest.NewRecorder()
@@ -157,10 +167,27 @@ func TestRootRendersLandingPage(t *testing.T) {
 	}
 }
 
+// A logged-in user skips the landing page. Options.Session stands in for
+// auth.LoadSession, which main.go installs on every request.
+func TestRootRedirectsLoggedInUser(t *testing.T) {
+	r, err := NewEngine(Options{
+		MaxBodyBytes: 1024,
+		Session:      func(c *gin.Context) { auth.SetCurrentUser(c, &auth.User{Username: "tester"}) },
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/files" {
+		t.Errorf("got %d Location=%q, want 303 /files", w.Code, w.Header().Get("Location"))
+	}
+}
+
 // Without RequireAuth in Options the real guard is used, and with no
 // session loaded it sends the browser to the login page.
 func TestDefaultRequireAuthIsUsed(t *testing.T) {
-	r, err := NewEngine(Options{MaxBodyBytes: 1024, Features: []RouteRegistrar{files.NewHandler(nil)}})
+	r, err := NewEngine(Options{MaxBodyBytes: 1024, Features: []RouteRegistrar{stubFiles{}}})
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
