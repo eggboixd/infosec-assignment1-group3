@@ -36,8 +36,11 @@ type Config struct {
 
 	// MasterKey is the decoded key-encryption key (KEK), crypto.MasterKeySize bytes.
 	MasterKey []byte
-	// SessionSecret signs and encrypts session cookies.
+	// SessionSecret keys the HMAC that turns session tokens into stored IDs.
 	SessionSecret []byte
+	// CookieSecure marks session cookies Secure. Set it when the app is
+	// served over HTTPS; the Docker setup serves plain HTTP on localhost.
+	CookieSecure bool
 }
 
 // String redacts secrets so a Config printed by accident leaks nothing.
@@ -74,6 +77,7 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 
 		MasterKey:     l.masterKey("MASTER_KEY"),
 		SessionSecret: l.sessionSecret("SESSION_SECRET"),
+		CookieSecure:  l.bool("COOKIE_SECURE", false),
 	}
 
 	switch cfg.GinMode {

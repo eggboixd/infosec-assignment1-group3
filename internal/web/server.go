@@ -25,6 +25,9 @@ type Options struct {
 	HealthChecks []HealthCheck
 	// Features are mounted in order.
 	Features []RouteRegistrar
+	// Session runs on every request to load the logged-in user, normally
+	// auth.LoadSession. Nil skips it, so every request is logged out.
+	Session gin.HandlerFunc
 	// RequireAuth guards the protected group. Nil means auth.RequireAuth();
 	// tests override it to observe that protected routes pass through it.
 	RequireAuth gin.HandlerFunc
@@ -44,8 +47,12 @@ func NewEngine(opts Options) (*gin.Engine, error) {
 		gin.Recovery(),
 		gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/healthz"}}),
 		securityHeaders(),
+		crossOriginProtection(),
 		maxBodySize(opts.MaxBodyBytes),
 	)
+	if opts.Session != nil {
+		r.Use(opts.Session)
+	}
 	if err := mountRendering(r); err != nil {
 		return nil, err
 	}

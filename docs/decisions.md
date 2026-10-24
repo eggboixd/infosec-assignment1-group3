@@ -416,9 +416,108 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
   applied to fields: someone who can *write* to MongoDB could copy another user's `nik` set into their own profile, or
   swap two fields, and it would still verify and decrypt. Fixing it needs associated data (user ID + field name) in
   the MAC, i.e. an `Encryptor` interface change.
-- **Until `feature/auth` lands, every request is the stub user `dev-user`.** Per-user isolation is enforced and tested
-  in the service (`Get` always queries by the session's user ID), but end-to-end it can only be checked once real
-  sessions exist.
+- ~~**Until `feature/auth` lands, every request is the stub user `dev-user`.**~~ Resolved by `feature/auth`: each
+  request now carries the logged-in user's ID, and isolation between two real accounts was checked end to end.
 - **Any duplicate-key error from `Upsert` is reported as "NIK already registered"** (scaffold behaviour). The only other
   unique index is `user_id`, which can only collide if the same user's first two saves race; the user then sees a
   misleading message once and can save again.
+
+---
+
+## Authentication (`feature/auth`)
+
+### D26. Passwords are hashed with Argon2id, never encrypted
+
+- **Decision:** passwords are hashed with Argon2id (`golang.org/x/crypto/argon2`), t=3, m=64 MiB, p=2, a 16-byte
+  random salt and a 32-byte output, stored as a PHC string (`$argon2id$v=19$m=65536,t=3,p=2$salt$hash`).
+  Verification uses `crypto/subtle.ConstantTimeCompare`. At most 4 hashes run at once.
+- **Alternatives:** encrypting passwords with AES/DES/RC4 like the private data; bcrypt; PBKDF2; scrypt.
+- **Why:**
+  - Login only needs "does it match?", and a hash answers that without ever being reversible. Encrypted passwords
+    could all be decrypted by anyone holding the master key.
+  - Argon2id is memory-hard (each guess needs 64 MiB), which makes GPU and ASIC cracking expensive. It won the
+    Password Hashing Competition and is the first choice in RFC 9106 and the OWASP Password Storage Cheat Sheet.
+  - The parameters are RFC 9106's second recommended option (t=3, 64 MiB) with 2 lanes instead of 4 for a small
+    container. Measured in the Docker app: about 95 ms per login.
+  - The cost is read from each stored hash, so the parameters can be raised later without breaking old accounts.
+- **Trade-offs:** 64 MiB per hash means a burst of logins could exhaust memory. The 4-slot semaphore caps it at
+  256 MiB; extra requests wait (or give up when the client disconnects).
+
+### D27. Server-side sessions in MongoDB, written in-house
+
+- **Decision:** on login the server makes a 32-byte random token (`crypto/rand`) and sends it in the `session`
+  cookie. MongoDB stores only `HMAC-SHA256(SESSION_SECRET, token)` as the session `_id`, plus the user ID, username
+  and `expires_at`. Sessions last 8 hours from login (absolute, not extended by activity). A TTL index deletes
+  expired documents, and lookups also check `expires_at`, because the TTL monitor only runs every minute. Every login
+  deletes the previous session and issues a new token; logout deletes the session server-side.
+- **Alternatives:**
+  1. *`gin-contrib/sessions` with a custom MongoDB store* (our original plan, since its own MongoDB store needs the v1
+     driver).
+  2. *Signed cookie sessions* (all state in the cookie).
+  3. *JWTs.*
+- **Why:**
+  - Option 1 adds three dependencies (`gin-contrib/sessions`, `gorilla/sessions`, `gorilla/securecookie`) plus the
+    archived `gorilla/context`, and its API has no way to rotate the session ID at login. The store adapter would
+    have been about as much code as the whole session layer here (about 300 lines including the flash
+    cookie, standard library only).
+  - Options 2 and 3 can't be revoked: a stolen cookie or token stays valid until it expires, even after logout.
+    Server-side sessions end the moment the document is deleted.
+  - Storing only the HMAC means someone who can read the database cannot turn the stored IDs into working cookies.
+- **Trade-offs:** one MongoDB lookup per request. No "remember me" and no idle timeout, only the 8-hour lifetime.
+
+### D28. CSRF protection: Go's `CrossOriginProtection` plus SameSite=Strict cookies
+
+- **Decision:** every state-changing request (POST, PUT, PATCH, DELETE) passes through
+  `net/http.CrossOriginProtection`. It refuses the request when the browser's `Sec-Fetch-Site` header says another
+  site sent it, or (older browsers) when the `Origin` header names another host. Session and flash cookies are
+  `HttpOnly` and `SameSite=Strict`. `Secure` is set when `COOKIE_SECURE=true`.
+- **Alternatives:** synchronizer tokens (a hidden token in every form); double-submit cookies; SameSite alone.
+- **Why:**
+  - It's in the standard library (Go 1.25+), needs no per-form changes, and covers htmx requests too.
+  - Fetch metadata and `Origin` are sent by every current browser, and a page on another site can't forge them.
+  - SameSite=Strict is a second layer: browsers don't attach the session cookie to cross-site requests at all.
+  - `Secure` is configurable because the Docker setup serves plain HTTP. Chrome and Firefox accept Secure cookies on
+    `http://localhost`, but no browser does over a LAN IP, where login would silently fail. gosec's G124 is
+    annotated for this reason.
+- **Trade-offs:** requests with neither header (curl, Postman) are allowed, since they are not from a browser and
+  carry no ambient cookies unless the user adds them. SameSite=Strict means following a link to the app from
+  another site shows the logged-out view until the next click.
+
+### D29. Login and registration are rate limited per IP
+
+- **Decision:** at most 10 login attempts and 5 registrations per client IP per minute. Over the limit the form is
+  shown again with HTTP 429 and `Retry-After`. The limiter is in memory and tracks at most 10,000 IPs.
+- **Alternatives:** per-username lockout; CAPTCHA; a shared limiter in MongoDB.
+- **Why:** it slows online password guessing to 10 per minute per IP on top of the Argon2id cost, with no extra
+  service. Per-username lockout would let anyone lock a victim out by typing their username wrongly 10 times.
+- **Trade-offs:** it resets on restart and isn't shared between replicas (we run one). Many IPs (a botnet) are not
+  stopped by a per-IP limit; long passwords and Argon2id are the defence there.
+
+### D30. Login failures are indistinguishable
+
+- **Decision:** a wrong password, an unknown username and an empty form all return the same 401 page ("Wrong username
+  or password."). For an unknown username the password is still verified against a dummy hash made with the same
+  parameters. Usernames are lower-cased, so `Budi` and `budi` are one account.
+- **Why:** different messages or response times would tell an attacker which usernames exist. Measured in the Docker
+  app over 4 attempts each: 95 ms for a wrong password and 98 ms for an unknown user.
+- **Trade-offs:** registration still says "That username is already taken", so usernames can be enumerated there
+  (rate limited to 5 per minute). Hiding it would need email verification, which this app doesn't have.
+
+### D31. Form bodies are capped at 64 KiB
+
+- **Decision:** every request body is capped at 64 KiB, except `POST /files`, which keeps `MAX_BODY_BYTES` (2 GiB)
+  for video uploads.
+- **Why:** login, register and profile forms are a few hundred bytes. Without the cap, a large multipart body sent to
+  any form would be spooled to disk by Gin's form parser, up to 2 GiB per request.
+
+---
+
+## Known limitations (auth)
+
+- **No password change or reset.** Changing a password would be a protected form that verifies the old password and
+  stores a new hash; a reset needs a verified email address, which accounts don't have.
+- **Sessions aren't revoked when an account changes.** There is no account deletion or password change yet; when one
+  is added, it should delete that user's sessions (`sessions.deleteMany({user_id})`).
+- **No multi-factor authentication.**
+- **Rate limits are per process** (D29) and reset when the app restarts.
+

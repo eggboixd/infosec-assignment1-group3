@@ -95,6 +95,7 @@ func run() error {
 	benchStore := benchmark.NewStore(db.Collection(mongodb.BenchmarksCollection))
 
 	authSvc := auth.NewService(auth.NewStore(db.Collection(mongodb.UsersCollection)))
+	sessions := auth.NewSessionManager(auth.NewSessionStore(db.Collection(mongodb.SessionsCollection)), cfg.SessionSecret, cfg.CookieSecure)
 	profileSvc := profile.NewService(profile.NewStore(db.Collection(mongodb.ProfilesCollection)), enc, nikBlindKey, benchStore)
 	filesSvc := files.NewService(files.NewStore(db.Collection(mongodb.FilesCollection)), objects, enc, benchStore)
 
@@ -105,8 +106,9 @@ func run() error {
 			{Name: "mongodb", Pinger: mongo},
 			{Name: "minio", Pinger: objects},
 		},
+		Session: auth.LoadSession(sessions),
 		Features: []web.RouteRegistrar{
-			auth.NewHandler(authSvc),
+			auth.NewHandler(authSvc, sessions),
 			profile.NewHandler(profileSvc),
 			files.NewHandler(filesSvc),
 			benchmark.NewHandler(benchStore),

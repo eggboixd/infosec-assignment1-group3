@@ -20,8 +20,9 @@ func init() {
 	gin.SetMode(gin.TestMode)
 }
 
-// authProbe wraps auth.RequireAuth and records the requests it handled and
-// whether a user was available to the handlers.
+// authProbe replaces auth.RequireAuth: it logs every request in as a test
+// user and records the requests it handled and whether a user was available
+// to the handlers.
 type authProbe struct {
 	hits     int
 	sawUser  bool
@@ -39,12 +40,14 @@ func (p *authProbe) middleware(c *gin.Context) {
 // /profile, tested in internal/profile) are not requested here.
 func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 	t.Helper()
-	probe := &authProbe{original: auth.RequireAuth()}
+	probe := &authProbe{original: func(c *gin.Context) {
+		auth.SetCurrentUser(c, &auth.User{Username: "tester"})
+	}}
 	r, err := NewEngine(Options{
 		MaxBodyBytes: maxBody,
 		HealthChecks: []HealthCheck{{Name: "fake", Pinger: fakePinger{}}},
 		Features: []RouteRegistrar{
-			auth.NewHandler(nil),
+			auth.NewHandler(nil, nil),
 			profile.NewHandler(nil),
 			files.NewHandler(nil),
 			benchmark.NewHandler(nil),
@@ -63,9 +66,6 @@ func TestStubRoutesReturnNotImplemented(t *testing.T) {
 		path      string
 		protected bool
 	}{
-		{http.MethodPost, "/register", false},
-		{http.MethodPost, "/login", false},
-		{http.MethodPost, "/logout", true},
 		{http.MethodGet, "/files", true},
 		{http.MethodPost, "/files", true},
 		{http.MethodGet, "/files/0123456789abcdef01234567/download?alg=aes", true},
@@ -157,6 +157,8 @@ func TestRootRendersLandingPage(t *testing.T) {
 	}
 }
 
+// Without RequireAuth in Options the real guard is used, and with no
+// session loaded it sends the browser to the login page.
 func TestDefaultRequireAuthIsUsed(t *testing.T) {
 	r, err := NewEngine(Options{MaxBodyBytes: 1024, Features: []RouteRegistrar{files.NewHandler(nil)}})
 	if err != nil {
@@ -164,8 +166,8 @@ func TestDefaultRequireAuthIsUsed(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/files", nil))
-	if w.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want 501", w.Code)
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
+		t.Errorf("got %d Location=%q, want 303 /login", w.Code, w.Header().Get("Location"))
 	}
 }
 
@@ -173,15 +175,77 @@ func TestMaxBodySize(t *testing.T) {
 	r, _ := newTestEngine(t, 16)
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(make([]byte, 17))))
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/files", bytes.NewReader(make([]byte, 17))))
 	if w.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("oversized declared body: status = %d, want 413", w.Code)
 	}
 
 	w = httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(make([]byte, 16))))
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/files", bytes.NewReader(make([]byte, 16))))
 	if w.Code != http.StatusNotImplemented {
 		t.Errorf("body at limit: status = %d, want 501", w.Code)
+	}
+}
+
+// Only the upload route gets the large limit; forms are capped at
+// formBodyBytes so a big multipart body can't be sent to them.
+func TestFormBodyLimit(t *testing.T) {
+	r, _ := newTestEngine(t, 1<<30)
+	tests := []struct {
+		path string
+		size int
+		want int
+	}{
+		{"/login", formBodyBytes + 1, http.StatusRequestEntityTooLarge},
+		{"/files/0123456789abcdef01234567", formBodyBytes + 1, http.StatusRequestEntityTooLarge},
+		{"/files", formBodyBytes + 1, http.StatusNotImplemented},
+	}
+	for _, tt := range tests {
+		method := http.MethodPost
+		if tt.path != "/login" && tt.path != "/files" {
+			method = http.MethodDelete
+		}
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(method, tt.path, bytes.NewReader(make([]byte, tt.size))))
+		if w.Code != tt.want {
+			t.Errorf("%s %s with %d bytes: status = %d, want %d", method, tt.path, tt.size, w.Code, tt.want)
+		}
+	}
+}
+
+func TestCrossOriginProtection(t *testing.T) {
+	tests := []struct {
+		name    string
+		method  string
+		headers map[string]string
+		want    int
+	}{
+		{"cross-site fetch metadata", http.MethodPost, map[string]string{"Sec-Fetch-Site": "cross-site"}, http.StatusForbidden},
+		{"foreign Origin", http.MethodPost, map[string]string{"Origin": "https://evil.example"}, http.StatusForbidden},
+		{"foreign Origin on DELETE", http.MethodDelete, map[string]string{"Origin": "https://evil.example"}, http.StatusForbidden},
+		{"same-origin fetch metadata", http.MethodPost, map[string]string{"Sec-Fetch-Site": "same-origin"}, http.StatusNotImplemented},
+		{"matching Origin", http.MethodPost, map[string]string{"Origin": "http://example.com"}, http.StatusNotImplemented},
+		{"no browser headers", http.MethodPost, nil, http.StatusNotImplemented},
+		{"cross-site GET is allowed", http.MethodGet, map[string]string{"Sec-Fetch-Site": "cross-site"}, http.StatusNotImplemented},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, _ := newTestEngine(t, 1<<20)
+			target := "/files"
+			if tt.method == http.MethodDelete {
+				target = "/files/0123456789abcdef01234567"
+			}
+			// httptest requests have Host example.com.
+			req := httptest.NewRequest(tt.method, target, nil)
+			for k, v := range tt.headers {
+				req.Header.Set(k, v)
+			}
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != tt.want {
+				t.Errorf("status = %d, want %d", w.Code, tt.want)
+			}
+		})
 	}
 }
 

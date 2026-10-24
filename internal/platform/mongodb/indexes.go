@@ -38,8 +38,8 @@ func indexes() map[string][]mongo.IndexModel {
 			{Keys: bson.D{{Key: "created_at", Value: -1}}, Options: options.Index().SetName("created")},
 			{Keys: bson.D{{Key: "algorithm", Value: 1}, {Key: "operation", Value: 1}}, Options: options.Index().SetName("alg_op")},
 		},
-		// TODO(feature/auth): the MongoDB session store must write an
-		// "expires_at" date field so this TTL index removes expired sessions.
+		// auth.SessionStore writes "expires_at" as a date, so this TTL index
+		// removes expired sessions.
 		SessionsCollection: {
 			{Keys: bson.D{{Key: "expires_at", Value: 1}}, Options: options.Index().SetName("expires_ttl").SetExpireAfterSeconds(0)},
 		},

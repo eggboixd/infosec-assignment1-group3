@@ -9,7 +9,7 @@ Stored data:
 3. Documents (PDF, DOC, DOCX, XLS, XLSX)
 4. Videos (MP4, WebM)
 
-> **Status:** scaffold only. Cryptography, authentication, sessions, and the upload/download pipeline are stubs. Every route except `/healthz` returns `501 Not Implemented`. See [Team branches](#team-branches).
+> **Status:** cryptography, the frontend, private data, and authentication (accounts, sessions, CSRF protection) are implemented. The upload/download pipeline and benchmarks are stubs that return `501 Not Implemented`. See [Team branches](#team-branches).
 
 ## Architecture
 
@@ -95,7 +95,8 @@ Other targets:
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `MASTER_KEY` | yes | | Base64 of 32 random bytes; wraps all data keys |
-| `SESSION_SECRET` | yes | | At least 32 characters; protects session cookies |
+| `SESSION_SECRET` | yes | | At least 32 characters; keys the HMAC that turns session tokens into stored IDs |
+| `COOKIE_SECURE` | no | `false` | Mark session cookies `Secure`; set to `true` when served over HTTPS |
 | `MONGO_URI` | yes | | MongoDB connection string (set by Compose for the container) |
 | `MONGO_DATABASE` | no | `securestore` | Database name |
 | `MINIO_ENDPOINT` | yes | | `host:port` of MinIO (set by Compose for the container) |

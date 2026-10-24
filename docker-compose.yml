@@ -23,6 +23,7 @@ services:
       MINIO_USE_SSL: "false"
       MASTER_KEY: "${MASTER_KEY:?set in .env}"
       SESSION_SECRET: "${SESSION_SECRET:?set in .env}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
       MAX_BODY_BYTES: "${MAX_BODY_BYTES:-2147483648}"
       SHUTDOWN_TIMEOUT: "${SHUTDOWN_TIMEOUT:-15s}"
     depends_on:
