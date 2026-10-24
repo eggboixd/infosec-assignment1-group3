@@ -1,0 +1,2 @@
+# Samples are byte-exact (PDF offsets, hashes): never convert line endings.
+* -text
