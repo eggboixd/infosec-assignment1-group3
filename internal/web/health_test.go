@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -76,5 +77,35 @@ func TestHealthHandler(t *testing.T) {
 				t.Error("response leaks the underlying error")
 			}
 		})
+	}
+}
+
+// hangingPinger blocks until its context ends, like a database that
+// accepts the connection but never answers.
+type hangingPinger struct{}
+
+func (hangingPinger) Ping(ctx context.Context) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+// ctxPinger answers at once unless its context has already ended.
+type ctxPinger struct{}
+
+func (ctxPinger) Ping(ctx context.Context) error { return ctx.Err() }
+
+func TestHealthHangingDependencyDoesNotFailOthers(t *testing.T) {
+	old := healthTimeout
+	healthTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { healthTimeout = old })
+
+	r := gin.New()
+	r.GET("/healthz", healthHandler([]HealthCheck{{"mongodb", hangingPinger{}}, {"minio", ctxPinger{}}}))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	want := `{"status":"unavailable","checks":{"minio":"ok","mongodb":"unavailable"}}`
+	if w.Code != http.StatusServiceUnavailable || w.Body.String() != want {
+		t.Errorf("got %d %s, want 503 %s", w.Code, w.Body.String(), want)
 	}
 }
