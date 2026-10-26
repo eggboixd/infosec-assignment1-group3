@@ -306,6 +306,15 @@ func TestHTTPDownloadRecordsBenchmark(t *testing.T) {
 		ops = append(ops, string(b.Algorithm)+":"+string(b.Operation))
 	}
 	if got := strings.Join(ops[3:], ","); got != "aes:decrypt,aes:download" {
-		t.Errorf("records after the upload = %s, want aes:decrypt,aes:download", got)
+		t.Fatalf("records after the upload = %s, want aes:decrypt,aes:download", got)
+	}
+	// The download contains the decrypt, so it carries the same crypto time.
+	recs := r.bench.Records()
+	decrypt, download := recs[3], recs[4]
+	if decrypt.CryptoDuration <= 0 || download.CryptoDuration != decrypt.CryptoDuration {
+		t.Errorf("download crypto %v, decrypt crypto %v; want equal and positive", download.CryptoDuration, decrypt.CryptoDuration)
+	}
+	if download.TotalDuration < decrypt.TotalDuration {
+		t.Errorf("download total %v is less than the decrypt it contains (%v)", download.TotalDuration, decrypt.TotalDuration)
 	}
 }
