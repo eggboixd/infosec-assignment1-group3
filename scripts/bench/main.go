@@ -1,7 +1,7 @@
 // Command bench runs a controlled benchmark against a running app: it
-// uploads fake videos of fixed sizes, downloads each one N times per
-// algorithm, one request at a time, and saves the server's records for the
-// run as CSV (docs/decisions.md D35).
+// uploads fake videos of fixed sizes several times, downloads each size N
+// times per algorithm, one request at a time, and saves the server's
+// records for the run as CSV (docs/decisions.md D35).
 //
 // The files are a 24-byte MP4 header followed by crypto/rand bytes: valid
 // enough for the upload type check, and nothing real. They are generated
@@ -44,7 +44,8 @@ func main() {
 	base := flag.String("url", "http://localhost:8080", "base URL of the running app")
 	user := flag.String("user", "", "existing username (password from BENCH_PASSWORD); empty registers a new account")
 	sizesFlag := flag.String("sizes", "1KiB,64KiB,1MiB,16MiB", "comma-separated file sizes (B, KiB, MiB, GiB)")
-	n := flag.Int("n", 10, "downloads per file per algorithm")
+	n := flag.Int("n", 10, "downloads per file size per algorithm")
+	uploads := flag.Int("uploads", 5, "uploads per file size (each gives one encrypt record per algorithm)")
 	out := flag.String("out", "", "CSV output path (default bench-results/run-<UTC time>.csv)")
 	keep := flag.Bool("keep", false, "keep the uploaded files instead of deleting them")
 	flag.Parse()
@@ -53,8 +54,8 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	if *n < 1 {
-		fatal(errors.New("-n must be at least 1"))
+	if *n < 1 || *uploads < 1 {
+		fatal(errors.New("-n and -uploads must be at least 1"))
 	}
 	if *out == "" {
 		*out = filepath.Join("bench-results", "run-"+time.Now().UTC().Format("20060102T150405Z")+".csv")
@@ -78,11 +79,15 @@ func main() {
 
 	var ids []string
 	for _, size := range sizes {
-		f, err := c.upload(size)
-		if err != nil {
-			fatal(fmt.Errorf("upload %s: %w", formatSize(size), err))
+		var f uploaded
+		for range *uploads {
+			var err error
+			if f, err = c.upload(size); err != nil {
+				fatal(fmt.Errorf("upload %s: %w", formatSize(size), err))
+			}
+			ids = append(ids, f.id)
 		}
-		ids = append(ids, f.id)
+		// Downloads use the last upload; every copy is the same size.
 		for round := range *n {
 			// Rotate the order each round, so no algorithm always goes
 			// first after the upload.
@@ -93,7 +98,7 @@ func main() {
 				}
 			}
 		}
-		fmt.Printf("  %-9s uploaded once, downloaded %d× per algorithm, all identical\n", formatSize(size), *n)
+		fmt.Printf("  %-9s uploaded %d×, downloaded %d× per algorithm, all identical\n", formatSize(size), *uploads, *n)
 	}
 
 	records, err := c.export(since, *out)
@@ -107,7 +112,7 @@ func main() {
 			}
 		}
 	}
-	if err := checkCounts(records, len(sizes), *n); err != nil {
+	if err := checkCounts(records, len(sizes), *uploads, *n); err != nil {
 		fatal(err)
 	}
 	fmt.Printf("\n%d records saved to %s\n\n", len(records), *out)
@@ -321,26 +326,27 @@ func (c *client) export(since time.Time, path string) ([]benchmark.Record, error
 	return records, os.WriteFile(path, body, 0o600)
 }
 
-// checkCounts fails if the server did not record every operation of the
-// run: one encrypt per algorithm per file, and n decrypts and n downloads.
-func checkCounts(records []benchmark.Record, files, n int) error {
+// checkCounts fails if the server did not record exactly the operations of
+// the run: per file size, one encrypt per algorithm per upload, and n
+// decrypts and n downloads per algorithm.
+func checkCounts(records []benchmark.Record, sizes, uploads, n int) error {
 	got := map[benchmark.Operation]int{}
 	for _, r := range records {
 		got[r.Operation]++
 	}
 	algs := len(crypto.All())
 	want := map[benchmark.Operation]int{
-		benchmark.OpEncrypt:  files * algs,
-		benchmark.OpDecrypt:  files * algs * n,
-		benchmark.OpDownload: files * algs * n,
+		benchmark.OpEncrypt:  sizes * algs * uploads,
+		benchmark.OpDecrypt:  sizes * algs * n,
+		benchmark.OpDownload: sizes * algs * n,
 	}
 	for op, w := range want {
 		if got[op] != w {
 			return fmt.Errorf("%d %s records, want %d (was another client using the app?)", got[op], op, w)
 		}
 	}
-	if len(records) != files*algs*(1+2*n) {
-		return fmt.Errorf("%d records, want %d (was another client using the app?)", len(records), files*algs*(1+2*n))
+	if total := sizes * algs * (uploads + 2*n); len(records) != total {
+		return fmt.Errorf("%d records, want %d (was another client using the app?)", len(records), total)
 	}
 	return nil
 }

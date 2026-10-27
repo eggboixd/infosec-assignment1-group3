@@ -595,22 +595,30 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
 - **Trade-offs:** any logged-in user can see when others uploaded or downloaded files and roughly how large they
   were. The page reads every matching record on each load; with tens of thousands of records, use `?since=`.
 
-### D35. Controlled runs: `scripts/bench` downloads one file at a time
+### D35. Controlled runs: `scripts/bench` repeats uploads and downloads one file at a time
 
-- **Decision:** `go run ./scripts/bench` registers a throwaway account, does a warm-up, then for each size
-  (default 1 KiB, 64 KiB, 1 MiB, 16 MiB) uploads one fake video and downloads it N times per algorithm, rotating
-  which algorithm goes first in each round. Every download is compared with the SHA-256 of what was uploaded. It
-  saves `/benchmarks/export.csv?since=<start of run>` and fails if the server did not record exactly the run's
-  operations.
-- **Why:** the three encryptions of an upload run in parallel (D32) and share the CPU, so **decrypt and download
-  records are the fair cipher comparison**: each download decrypts one algorithm on its own, with nothing else
-  running. The warm-up keeps connection set-up and cold caches out of the results. The record-count check catches
-  lost records and other clients using the app during the run. The fake files are an MP4 header plus `crypto/rand`
-  bytes, so the content cannot favour any cipher and no real data is used.
-- **Measured (Docker on a laptop, N = 10, 16 MiB):** decrypt crypto throughput AES-256 513 MiB/s, RC4 169 MiB/s,
-  DES 44 MiB/s. AES is fastest because Go uses the CPU's AES instructions; DES is slowest because it is a 64-bit
-  block cipher implemented in software with 16 rounds per block. These numbers depend on the machine; the report
-  should use its own run.
+- **Decision:** `go run ./scripts/bench` registers a throwaway account and does a warm-up. Then, for each size
+  (default 1 KiB, 64 KiB, 1 MiB, 16 MiB), it uploads a fake video `-uploads` times (default 5) and downloads it `-n`
+  times per algorithm (default 10), one request at a time, rotating which algorithm goes first in each round. Every
+  download is compared with the SHA-256 of what was uploaded. It saves `/benchmarks/export.csv?since=<start of run>`
+  and fails if the server did not record exactly the run's operations.
+- **Why:** the warm-up keeps connection set-up and cold caches out of the results. Repeating uploads gives encrypt
+  timings a mean and a spread; the first version uploaded each size once, and one sample per algorithm varied by up to
+  39% between two runs. The record-count check catches lost records and other clients using the app during the run.
+  The fake files are an MP4 header plus `crypto/rand` bytes, so the content cannot favour any cipher and no real data
+  is used.
+- **Upload contention is small but real.** The three encryptions of an upload run in parallel (D32). Comparing the
+  cipher time inside uploads with `go test -bench` encrypting alone (docs/benchmark/README.md): +2% to +5% on a 2-vCPU
+  VM (Intel Core Ultra 7 255HX), and +5% to +26% for DES and RC4 on a 4-core Ryzen 5 3550H (AES moved ±16% in both
+  directions, which is run-to-run noise at 11 ms). So encrypt records are usable for the cipher comparison, but
+  decrypt records, where one algorithm runs alone, are the cleaner one. What parallel encryption does change is the
+  **whole upload**, which waits for the slowest cipher (DES).
+- **Measured:** full results for both machines and all methods are in `docs/benchmark/README.md`. On the Ryzen, at 10
+  MiB, the app's decrypt cipher time (with MinIO and MongoDB running) is within 7% of `go test -bench` for AES and DES
+  and 26% slower for RC4. AES is fastest because Go uses the CPU's AES instructions; DES is slowest because it is a
+  64-bit block cipher implemented in software with 16 rounds per block. Absolute numbers depend on the machine and
+  even on the session (the same laptop measured 20–30% slower than 35 minutes earlier), so the report must
+  take all its numbers from one session and name the machine.
 
 ### D36. Nested measurements share crypto time
 
@@ -624,7 +632,8 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
 
 ## Known limitations (benchmarks)
 
-- **Upload encrypt times include contention** between the three parallel encryptions (D35).
+- **Upload encrypt times include some contention** between the three parallel encryptions: up to about +25% over
+  a cipher running alone (D35).
 - **Private-data crypto time is measured differently** from file crypto time (D22): it includes key generation and
   wrapping. Compare files with files and fields with fields.
 - **Timings come from one machine and one run.** Report the mean ± standard deviation, the run count, and the hardware.

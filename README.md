@@ -9,7 +9,7 @@ Stored data:
 3. Documents (PDF, DOC, DOCX, XLS, XLSX)
 4. Videos (MP4, WebM)
 
-> **Status:** cryptography, the frontend, private data, authentication (accounts, sessions, CSRF protection), encrypted file storage (streaming upload, download and delete) and benchmarks (summary page, CSV export, and the `scripts/bench` runner) are implemented. Every HTTP route and its test cases are listed in [docs/api.md](docs/api.md). See [Team branches](#team-branches).
+> **Status:** cryptography, the frontend, private data, authentication (accounts, sessions, CSRF protection), encrypted file storage (streaming upload, download and delete) and benchmarks (summary page, CSV export, and the `scripts/bench` runner) are implemented. Every HTTP route and its test cases are listed in [docs/api.md](docs/api.md). Measured running times are in [docs/benchmark/](docs/benchmark/README.md). See [Team branches](#team-branches).
 
 ## Architecture
 
