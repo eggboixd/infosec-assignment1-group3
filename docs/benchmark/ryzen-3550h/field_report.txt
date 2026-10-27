@@ -1,0 +1,13 @@
+bytes 119
+# run 1
+aes enc med=145.958µs p95=778.687µs dec med=155.233µs p95=855.44µs
+des enc med=222.958µs p95=953.128µs dec med=230.69µs p95=1.013811ms
+rc4 enc med=154.75µs p95=872.851µs dec med=164.473µs p95=955.274µs
+# run 2
+aes enc med=134.41µs p95=624.276µs dec med=143.743µs p95=680.788µs
+des enc med=198.584µs p95=768.237µs dec med=204.797µs p95=774.917µs
+rc4 enc med=126.646µs p95=635.06µs dec med=137.466µs p95=678.699µs
+# run 3
+aes enc med=126.736µs p95=656.79µs dec med=134.599µs p95=725.465µs
+des enc med=178.548µs p95=704.822µs dec med=188.314µs p95=755.445µs
+rc4 enc med=121.171µs p95=648.406µs dec med=127.06µs p95=661.378µs
