@@ -52,3 +52,16 @@ func TestClockNilSafe(t *testing.T) {
 		t.Error("ClockFrom on bare context returned non-nil")
 	}
 }
+
+func TestNestedClockAddsToParent(t *testing.T) {
+	ctx, outer := WithClock(context.Background())
+	outer.Add(1)
+	ctx, inner := WithClock(ctx)
+	if ClockFrom(ctx) != inner {
+		t.Fatal("ClockFrom does not return the innermost clock")
+	}
+	inner.Add(10)
+	if inner.Elapsed() != 10 || outer.Elapsed() != 11 {
+		t.Errorf("inner %d, outer %d; want 10 and 11", inner.Elapsed(), outer.Elapsed())
+	}
+}

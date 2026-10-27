@@ -1,4 +1,4 @@
-.PHONY: run build test lint up down logs gen-key
+.PHONY: run build test lint up down logs gen-key bench
 
 BIN := bin/server
 GOSEC_VERSION := v2.29.0
@@ -33,6 +33,10 @@ down:
 ## logs: follow logs from all services
 logs:
 	docker compose logs -f
+
+## bench: run the download benchmark against the running stack (N=10 by default)
+bench:
+	go run ./scripts/bench -n $(or $(N),10)
 
 ## gen-key: print a random base64-encoded 32-byte key
 gen-key:
