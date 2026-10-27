@@ -53,18 +53,21 @@ func TestCheckCounts(t *testing.T) {
 			recs = append(recs, benchmark.Record{Operation: op})
 		}
 	}
-	// 2 files, n = 3: 6 encrypts, 18 decrypts, 18 downloads.
-	add(benchmark.OpEncrypt, 6)
+	// 2 sizes, 4 uploads and n = 3 each: 24 encrypts, 18 decrypts, 18 downloads.
+	add(benchmark.OpEncrypt, 24)
 	add(benchmark.OpDecrypt, 18)
 	add(benchmark.OpDownload, 18)
-	if err := checkCounts(recs, 2, 3); err != nil {
+	if err := checkCounts(recs, 2, 4, 3); err != nil {
 		t.Errorf("complete run rejected: %v", err)
 	}
-	if err := checkCounts(recs[1:], 2, 3); err == nil {
+	if err := checkCounts(recs, 2, 1, 3); err == nil {
+		t.Error("extra uploads were not noticed")
+	}
+	if err := checkCounts(recs[1:], 2, 4, 3); err == nil {
 		t.Error("a missing record was not noticed")
 	}
 	add(benchmark.OpEncrypt, 1) // another client's private-data save, say
-	if err := checkCounts(recs, 2, 3); err == nil {
+	if err := checkCounts(recs, 2, 4, 3); err == nil {
 		t.Error("an extra record was not noticed")
 	}
 }
