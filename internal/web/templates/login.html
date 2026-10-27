@@ -1,6 +1,6 @@
 {{define "login.html"}}{{template "header" .}}
 {{/* Data: .Errors (optional; a slice or map of messages), .Username (optional,
-     refills the field after a failed attempt). Gembi starts angry (one shake)
+     refills the field after a failed attempt). Toga starts angry (one shake)
      when there are errors, otherwise suspicious, and covers its eyes while the
      password field has focus (mascot.js). */}}
 <div class="auth-wrap">
@@ -9,7 +9,7 @@
       {{- if .Errors}}{{template "mascot" "angry"}}{{else}}{{template "mascot" "suspicious"}}{{end -}}
     </div>
     <h1 id="login-title">Log in</h1>
-    <p class="muted">Gembi only opens up for the right password.</p>
+    <p class="muted">Welcome back. Toga only lets the right password in.</p>
     {{with .Errors}}
     <div class="form-errors" role="alert">
       <ul>{{range .}}<li>{{.}}</li>{{end}}</ul>

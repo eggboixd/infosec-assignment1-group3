@@ -222,27 +222,33 @@ func TestThemeContrast(t *testing.T) {
 		{"ink", "card", text, "body text"},
 		{"ink", "field", text, "text typed in a field"},
 		{"ink", "btn", text, "plain button"},
-		{"ink", "accent-soft", text, "nav hover, info flash, code, unknown kind"},
-		{"ink", "pink", text, "current nav item"},
-		{"ink", "butter", text, "username chip, error code"},
-		{"ink", "peach", text, "ID card badge"},
-		{"ink", "mint", text, "document badge"},
-		{"ink", "lavender", text, "video badge"},
+		{"ink", "accent-soft", text, "info flash, code, unknown kind"},
+		{"ink", "butter", text, "missing badge, error code"},
+		{"ink", "gold-soft", text, "username chip"},
+		{"ink", "line", text, "closed badge"},
+		{"ink", "sand", text, "ID card badge"},
+		{"ink", "mint", text, "document badge, filled checklist slot"},
+		{"ink", "sky", text, "video badge"},
 		{"ink-soft", "card", text, "muted text, hints, table headers"},
 		{"ink-soft", "page", text, "footer"},
+		{"ink-soft", "mint", text, "hint in a filled checklist slot"},
 		{"accent", "card", text, "links, download pills"},
 		{"accent", "page", text, "links outside cards"},
-		{"accent", "accent-soft", text, "download pill on hover"},
-		{"accent", "lavender", text, "benchmarks link on the home card"},
-		{"on-accent", "accent", text, "primary button"},
-		{"on-accent", "accent-hover", text, "primary button on hover"},
+		{"accent", "mint", text, "links in a filled slot or requirement"},
+		{"accent", "accent-soft", text, "ready badge, download pill on hover"},
+		{"on-accent", "accent", text, "header, nav, primary button, step numbers"},
+		{"on-accent", "accent-hover", text, "nav and primary button on hover"},
+		{"gold-ink", "card", text, "kicker, fact labels"},
+		{"gold-ink", "gold-soft", text, "ribbon, submitted badge"},
 		{"danger", "btn", text, "delete button"},
 		{"danger", "danger-soft", text, "error flash, form errors, delete hover"},
 		{"success", "success-soft", text, "success flash"},
+		{"success", "card", text, "uploaded status"},
 		{"field-line", "card", nonText, "field border on a card"},
 		{"field-line", "page", nonText, "field border next to the file input's background"},
 		{"field-line", "field", nonText, "field border against the field"},
 		{"accent", "card", nonText, "focus ring"},
+		{"gold", "accent", nonText, "focus ring in the header"},
 	}
 	for _, p := range pairs {
 		fg, ok1 := tokens[p.fg]
@@ -258,7 +264,7 @@ func TestThemeContrast(t *testing.T) {
 }
 
 // TestFaviconMatchesMascot: favicon.svg can't use mascot.css (it is loaded
-// as an image), so it repeats Gembi's colours. Every colour it uses must be
+// as an image), so it repeats Toga's colours. Every colour it uses must be
 // one of the .mascot variables, so a recolour can't miss the tab icon.
 func TestFaviconMatchesMascot(t *testing.T) {
 	block, _, err := splitTokenBlock(readStatic(t, "mascot.css"), ".mascot")

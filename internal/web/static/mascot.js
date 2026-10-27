@@ -1,8 +1,9 @@
-// Gembi's mood changes on the page.
+// The mascot's mood changes on the page. The mascot is Toga the owl; the
+// data-gembi* hook names are from its predecessor and kept so pages don't change.
 //
 // The server renders Gembi in a starting mood (templates/mascot.html). This
 // script only reacts to what happens in the browser: password focus, form
-// submits, download clicks and deleted rows. It works by swapping one
+// submits and download clicks. It works by swapping one
 // mascot--<mood> class (see static/mascot.css). It uses addEventListener only
 // because the Content-Security-Policy forbids inline scripts and handlers.
 // Without JavaScript Gembi simply keeps the mood the server chose.
@@ -12,9 +13,7 @@
 //   data-base-mood="..."         on [data-gembi]: the mood to settle back to
 //   input[data-gembi-cover]      Gembi covers its eyes while it has focus
 //   form[data-gembi-busy="..."]  Gembi is busy while it submits (value = button label)
-//   a[data-gembi-download]       Gembi is happy for a moment when clicked
-//   [data-gembi-list]            a <tbody>; when its last row is removed, Gembi
-//                                gets sleepy and [data-gembi-empty] is shown
+//   a[data-gembi-download]       the mascot is happy for a moment when clicked
 (function () {
   "use strict";
 
@@ -97,19 +96,4 @@
   document.addEventListener("click", (event) => {
     if (event.target.closest("a[data-gembi-download]")) show("happy", HAPPY_MS);
   });
-
-  // When the last row of the list is removed (htmx delete), show the empty
-  // state and let Gembi nap.
-  const list = document.querySelector("[data-gembi-list]");
-  if (list) {
-    new MutationObserver(() => {
-      if (list.querySelector("tr")) return;
-      const table = list.closest("table");
-      if (table) table.hidden = true;
-      const empty = document.querySelector("[data-gembi-empty]");
-      if (empty) empty.hidden = false;
-      base = "sleepy";
-      show(base);
-    }).observe(list, { childList: true });
-  }
 })();
