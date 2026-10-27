@@ -23,7 +23,8 @@ import (
 const (
 	msgBadForm      = "The upload form was incomplete. Choose a kind and a file, then try again."
 	msgUnknownKind  = "Unknown file kind. Choose ID card, document or video."
-	msgTypeMismatch = "That file type isn't allowed for this kind, or its content doesn't match its extension."
+	msgUnknownSlot  = "Unknown document slot. Use the upload button next to the document you want to add."
+	msgTypeMismatch = "That file type isn't allowed here, or its content doesn't match its extension."
 	msgEmpty        = "That file is empty."
 	msgUploadFailed = "The file could not be stored. Please try again."
 	msgLoadFailed   = "Your files could not be loaded. Please try again."
@@ -82,19 +83,29 @@ func (h *Handler) upload(c *gin.Context) {
 		return
 	}
 
-	// The "kind" part must come first so it is validated before the file.
+	// The "slot" (or legacy "kind") part must come first so it is validated
+	// before the file is read.
 	part, err := mr.NextPart()
-	if err != nil || part.FormName() != "kind" {
+	if err != nil || (part.FormName() != "slot" && part.FormName() != "kind") {
 		h.uploadError(c, user, err)
 		return
 	}
-	kindValue, err := io.ReadAll(io.LimitReader(part, maxKindLen))
+	isSlot := part.FormName() == "slot"
+	value, err := io.ReadAll(io.LimitReader(part, maxKindLen))
 	if err != nil {
 		h.uploadError(c, user, err)
 		return
 	}
-	kind, err := ParseKind(strings.TrimSpace(string(kindValue)))
-	if err != nil {
+	var (
+		slot SlotInfo
+		kind Kind
+	)
+	if isSlot {
+		if slot, err = ParseSlot(strings.TrimSpace(string(value))); err != nil {
+			h.renderList(c, user, http.StatusBadRequest, msgUnknownSlot)
+			return
+		}
+	} else if kind, err = ParseKind(strings.TrimSpace(string(value))); err != nil {
 		h.renderList(c, user, http.StatusBadRequest, msgUnknownKind)
 		return
 	}
@@ -106,12 +117,18 @@ func (h *Handler) upload(c *gin.Context) {
 	}
 	defer part.Close()
 
-	rec, err := h.svc.Upload(c.Request.Context(), user.ID, kind, part.FileName(), part)
+	var rec *FileRecord
+	if isSlot {
+		rec, err = h.svc.UploadSlot(c.Request.Context(), user.ID, slot, part.FileName(), part)
+		kind = slot.Kind
+	} else {
+		rec, err = h.svc.Upload(c.Request.Context(), user.ID, kind, part.FileName(), part)
+	}
 	if err != nil {
 		h.uploadError(c, user, err)
 		return
 	}
-	slog.Info("files: uploaded", "user_id", user.ID.Hex(), "file_id", rec.ID.Hex(), "kind", kind, "bytes", rec.Size)
+	slog.Info("files: uploaded", "user_id", user.ID.Hex(), "file_id", rec.ID.Hex(), "kind", kind, "slot", rec.Slot, "bytes", rec.Size)
 	c.Redirect(http.StatusSeeOther, "/files")
 }
 
