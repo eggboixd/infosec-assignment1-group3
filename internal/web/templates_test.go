@@ -115,9 +115,9 @@ func TestHomeTemplate(t *testing.T) {
 			data: map[string]any{},
 			mood: "hello",
 			want: []string{
-				`data-base-mood="smiling"`, "<h1 id=\"home-title\">Secure Store</h1>",
+				`data-base-mood="smiling"`, "<h1 id=\"home-title\">BeasiswaKu</h1>",
 				`href="/login"`, `href="/register"`, `href="/benchmarks"`,
-				"AES-256", "DES", "RC4", "CTR", "HMAC", "ID card",
+				"AES-256", "DES", "RC4", "CTR", "HMAC", "scholarship", "KTP",
 			},
 			notWant: []string{"site-nav"},
 			count:   map[string]int{`class="card feature `: 3},
