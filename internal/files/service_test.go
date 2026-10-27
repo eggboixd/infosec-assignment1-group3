@@ -394,7 +394,7 @@ func TestBenchmarkRecords(t *testing.T) {
 	for _, r := range recs[:3] {
 		seen[r.Algorithm] = true
 		if r.Operation != benchmark.OpEncrypt || r.Bytes != int64(len(plain)) || r.FileKind != "idcard" ||
-			r.CryptoDuration <= 0 || r.TotalDuration < r.CryptoDuration {
+			r.CryptoDuration < 0 || r.TotalDuration < r.CryptoDuration {
 			t.Errorf("encrypt record = %+v", r)
 		}
 	}

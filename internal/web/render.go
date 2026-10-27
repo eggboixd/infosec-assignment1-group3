@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,7 +13,8 @@ import (
 // templateFuncs are the helpers available in every template. Keep them
 // pure formatting: no I/O and no access to request data.
 var templateFuncs = template.FuncMap{
-	"humanBytes": humanBytes,
+	"humanBytes":   humanBytes,
+	"milliseconds": func(d time.Duration) float64 { return float64(d) / float64(time.Millisecond) },
 }
 
 // humanBytes formats a byte count with binary units, for example

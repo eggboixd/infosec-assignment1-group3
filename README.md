@@ -10,7 +10,7 @@ Stored data:
 4. Videos (MP4, WebM)
 5. Applications: which scholarship a student applied to, and when
 
-> **Status:** cryptography, the frontend, private data, authentication (accounts, sessions, CSRF protection), encrypted file storage (streaming upload, download and delete) and benchmarks (summary page, CSV export, and the `scripts/bench` runner) and scholarship applications (home page, detail pages, encrypted submit) are implemented. Every HTTP route and its test cases are listed in [docs/api.md](docs/api.md). Measured running times are in [docs/benchmark/](docs/benchmark/README.md). See [Team branches](#team-branches).
+> **Status:** cryptography, the frontend, private data, authentication (accounts, sessions, CSRF protection), encrypted file storage (streaming upload, download and delete), benchmarks (summary page, CSV export, the `scripts/bench` runner and a client-side download script) and scholarship applications (home page, detail pages, encrypted submit) are implemented. Every HTTP route and its test cases are listed in [docs/api.md](docs/api.md). Measured running times are in [docs/benchmark/](docs/benchmark/README.md). See [docs/demo.md](docs/demo.md) for the clean-stack demo flow and [Team branches](#team-branches).
 
 ## Architecture
 
