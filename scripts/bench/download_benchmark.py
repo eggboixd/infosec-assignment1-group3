@@ -26,34 +26,35 @@ ALGORITHMS = ("aes", "des", "rc4")
 
 
 class FilesParser(HTMLParser):
+    """Collects (file ID, name) pairs from the /files page.
+
+    Each file shows its name in an element with class "file-name", followed by
+    its download links. That holds for the checklist slots and for the
+    "Other files" table, so links are paired with the last name seen.
+    """
+
     def __init__(self) -> None:
         super().__init__()
-        self.files: list[tuple[str, str]] = []
-        self.row: dict[str, str] | None = None
-        self.in_name = False
+        self.files: dict[str, str] = {}
+        self.name = ""
+        self.name_tag: str | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         a = dict(attrs)
-        if tag == "tr":
-            self.row = {"id": "", "name": "(unnamed)"}
-        elif self.row is not None and tag == "td" and a.get("data-label") == "Name":
-            self.in_name = True
-        elif self.row is not None and tag == "a":
+        if "file-name" in (a.get("class") or "").split():
+            self.name, self.name_tag = "", tag
+        elif tag == "a":
             match = FILE_LINK.match(a.get("href") or "")
             if match:
-                self.row["id"] = match.group(1)
+                self.files.setdefault(match.group(1), self.name.strip() or "(unnamed)")
 
     def handle_data(self, data: str) -> None:
-        if self.row is not None and self.in_name:
-            self.row["name"] = (self.row["name"] if self.row["name"] != "(unnamed)" else "") + data.strip()
+        if self.name_tag is not None:
+            self.name += data
 
     def handle_endtag(self, tag: str) -> None:
-        if tag == "td":
-            self.in_name = False
-        elif tag == "tr" and self.row is not None:
-            if self.row["id"]:
-                self.files.append((self.row["id"], self.row["name"].strip() or "(unnamed)"))
-            self.row = None
+        if tag == self.name_tag:
+            self.name_tag = None
 
 
 def read_all(response, chunk_size: int = 1024 * 1024) -> int:
@@ -88,8 +89,8 @@ def main() -> int:
             html = response.read().decode("utf-8", "replace")
         found = FilesParser()
         found.feed(html)
-        # Each file row has three links; keep one row per file ID.
-        files = list(dict(found.files).items())
+        # Each file has three links; found.files keeps one entry per file ID.
+        files = list(found.files.items())
         if not files:
             print("No files found. Log in and upload test files in the web UI first.", file=sys.stderr)
             return 2
