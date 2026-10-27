@@ -12,11 +12,12 @@ import (
 // Collection names. main.go passes each feature store its collection, so
 // feature packages never import this package.
 const (
-	UsersCollection      = "users"
-	ProfilesCollection   = "profiles"
-	FilesCollection      = "files"
-	BenchmarksCollection = "benchmarks"
-	SessionsCollection   = "sessions"
+	UsersCollection        = "users"
+	ProfilesCollection     = "profiles"
+	FilesCollection        = "files"
+	BenchmarksCollection   = "benchmarks"
+	SessionsCollection     = "sessions"
+	ApplicationsCollection = "applications"
 )
 
 // indexes lists the indexes each collection needs. CreateMany is idempotent
@@ -37,6 +38,11 @@ func indexes() map[string][]mongo.IndexModel {
 		BenchmarksCollection: {
 			{Keys: bson.D{{Key: "created_at", Value: -1}}, Options: options.Index().SetName("created")},
 			{Keys: bson.D{{Key: "algorithm", Value: 1}, {Key: "operation", Value: 1}}, Options: options.Index().SetName("alg_op")},
+		},
+		ApplicationsCollection: {
+			// One application per student and scholarship, via the blind index (D38).
+			{Keys: bson.D{{Key: "index", Value: 1}}, Options: options.Index().SetName("index_unique").SetUnique(true)},
+			{Keys: bson.D{{Key: "user_id", Value: 1}}, Options: options.Index().SetName("user_id")},
 		},
 		// auth.SessionStore writes "expires_at" as a date, so this TTL index
 		// removes expired sessions.
