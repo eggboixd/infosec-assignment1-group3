@@ -1,6 +1,6 @@
 {{define "benchmarks.html"}}{{template "header" .}}
-{{/* Data: .Records ([]benchmark.Record). Gembi is smiling when there are
-     measurements and sleepy when there are none. */}}
+{{/* Data: .Records ([]benchmark.Record), newest first, and .Summaries
+     (averages grouped by algorithm and operation). */}}
 <section class="card">
   <div class="page-head">
     <div class="gembi" data-gembi data-base-mood="{{if .Records}}smiling{{else}}sleepy{{end}}">
@@ -8,7 +8,7 @@
     </div>
     <div>
       <h1>Benchmarks</h1>
-      <p>Running time of every encryption, decryption and download, per algorithm. Download the same file many times to collect data for the report.</p>
+      <p>Recorded time for encryption, decryption, and downloads. Download the same file repeatedly to collect comparable measurements.</p>
     </div>
   </div>
 </section>
@@ -18,18 +18,44 @@
     <h2 id="records-title">Measurements</h2>
     <a class="btn btn--small" href="/benchmarks/export.csv">Export CSV</a>
   </div>
-  {{/* TODO(feature/benchmark): render per-algorithm averages and the raw
-       records from .Records. Give each <td> a data-label (the column name)
-       so the table turns into cards on phones. */}}
   {{if .Records}}
+  <h3>Average by algorithm and operation</h3>
   <table class="responsive-table">
-    <thead><tr><th scope="col">Time</th><th scope="col">Algorithm</th><th scope="col">Operation</th><th scope="col" class="num">Bytes</th><th scope="col" class="num">Crypto (ms)</th><th scope="col" class="num">Total (ms)</th></tr></thead>
-    <tbody></tbody>
+    <thead><tr><th scope="col">Algorithm</th><th scope="col">Operation</th><th scope="col" class="num">Samples</th><th scope="col" class="num">Crypto (ms)</th><th scope="col" class="num">Total (ms)</th></tr></thead>
+    <tbody>
+      {{range .Summaries}}
+      <tr>
+        <td data-label="Algorithm">{{.Algorithm}}</td>
+        <td data-label="Operation">{{.Operation}}</td>
+        <td class="num" data-label="Samples">{{.Count}}</td>
+        <td class="num" data-label="Crypto (ms)">{{printf "%.3f" .CryptoMillis}}</td>
+        <td class="num" data-label="Total (ms)">{{printf "%.3f" .TotalMillis}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+
+  <h3>Recent measurements (up to 1,000)</h3>
+  <table class="responsive-table">
+    <thead><tr><th scope="col">Time</th><th scope="col">Algorithm</th><th scope="col">Operation</th><th scope="col">File kind</th><th scope="col" class="num">Bytes</th><th scope="col" class="num">Crypto (ms)</th><th scope="col" class="num">Total (ms)</th></tr></thead>
+    <tbody>
+      {{range .Records}}
+      <tr>
+        <td data-label="Time"><time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2 Jan 2006, 15:04:05"}}</time></td>
+        <td data-label="Algorithm">{{.Algorithm}}</td>
+        <td data-label="Operation">{{.Operation}}</td>
+        <td data-label="File kind">{{if .FileKind}}{{.FileKind}}{{else}}—{{end}}</td>
+        <td class="num" data-label="Bytes">{{.Bytes}}</td>
+        <td class="num" data-label="Crypto (ms)">{{printf "%.3f" (.CryptoDuration | milliseconds)}}</td>
+        <td class="num" data-label="Total (ms)">{{printf "%.3f" (.TotalDuration | milliseconds)}}</td>
+      </tr>
+      {{end}}
+    </tbody>
   </table>
   {{else}}
   <div class="empty-state">
     <strong>No measurements yet.</strong>
-    <span>Upload or download a file and Gembi will time how long each cipher takes.</span>
+    <span>Upload or download a file and the app will time each cipher.</span>
   </div>
   {{end}}
 </section>

@@ -34,9 +34,33 @@ func (s *Store) List(ctx context.Context, limit int64) ([]Record, error) {
 	if err != nil {
 		return nil, fmt.Errorf("benchmark: find: %w", err)
 	}
+	defer cur.Close(ctx)
 	var out []Record
 	if err := cur.All(ctx, &out); err != nil {
 		return nil, fmt.Errorf("benchmark: decode: %w", err)
 	}
 	return out, nil
+}
+
+// Iterate calls visit for each record in newest-first order without holding
+// the complete collection in memory.
+func (s *Store) Iterate(ctx context.Context, visit func(Record) error) error {
+	cur, err := s.coll.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}))
+	if err != nil {
+		return fmt.Errorf("benchmark: find: %w", err)
+	}
+	defer cur.Close(ctx)
+	for cur.Next(ctx) {
+		var r Record
+		if err := cur.Decode(&r); err != nil {
+			return fmt.Errorf("benchmark: decode: %w", err)
+		}
+		if err := visit(r); err != nil {
+			return err
+		}
+	}
+	if err := cur.Err(); err != nil {
+		return fmt.Errorf("benchmark: cursor: %w", err)
+	}
+	return nil
 }
