@@ -311,9 +311,9 @@ func TestProfileTemplate(t *testing.T) {
 			want: []string{
 				`value="Test Person"`, `value="0000000000000001"`, `value="2000-01-31"`,
 				">Jl. Contoh No. 1</textarea>", `value="081200000000"`, `value="test@example.com"`,
-				`<option value="des" selected>`, "decrypted with DES", "data-autosubmit",
+				`<option value="des" selected>`, "decrypted with DES", "data-autosubmit", "<h1>Applicant data</h1>", "Your applicant data", "scholarship",
 			},
-			notWant: []string{`<option value="aes" selected>`, `<option value="rc4" selected>`},
+			notWant: []string{`<option value="aes" selected>`, `<option value="rc4" selected>`, "Private data"},
 		},
 		{
 			name: "algorithm defaults to AES",
@@ -332,7 +332,7 @@ func TestProfileTemplate(t *testing.T) {
 			page:    "profile.html",
 			data:    map[string]any{},
 			mood:    "sleepy",
-			want:    []string{"Nothing stored yet.", `name="full_name" autocomplete="name" required maxlength="100" value=""`},
+			want:    []string{"Nothing stored yet.", "Add your applicant data", `name="full_name" autocomplete="name" required maxlength="100" value=""`},
 			notWant: []string{`name="alg"`, "Test Person"},
 		},
 		{
