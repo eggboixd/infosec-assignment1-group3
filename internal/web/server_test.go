@@ -11,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
-	"github.com/eggboixd/infosec-assignment1-group3/internal/benchmark"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
 )
 
@@ -49,7 +48,7 @@ func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 			auth.NewHandler(nil, nil),
 			profile.NewHandler(nil),
 			stubFiles{},
-			benchmark.NewHandler(nil),
+			stubBenchmarks{},
 		},
 		RequireAuth: probe.middleware,
 	})
@@ -59,9 +58,9 @@ func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 	return r, probe
 }
 
-// stubFiles mounts the file routes with handlers that only answer 501.
-// These tests exercise the engine's middleware (auth, body limits, CSRF),
-// not the files feature, which is tested in internal/files.
+// stubFiles and stubBenchmarks mount the feature routes with handlers that
+// only answer 501. These tests exercise the engine's middleware (auth, body
+// limits, CSRF), not the features, which are tested in their own packages.
 type stubFiles struct{}
 
 func (stubFiles) RegisterRoutes(_, protected *gin.RouterGroup) {
@@ -70,6 +69,14 @@ func (stubFiles) RegisterRoutes(_, protected *gin.RouterGroup) {
 	protected.POST("/files", stub)
 	protected.GET("/files/:id/download", stub)
 	protected.DELETE("/files/:id", stub)
+}
+
+type stubBenchmarks struct{}
+
+func (stubBenchmarks) RegisterRoutes(_, protected *gin.RouterGroup) {
+	stub := func(c *gin.Context) { c.Status(http.StatusNotImplemented) }
+	protected.GET("/benchmarks", stub)
+	protected.GET("/benchmarks/export.csv", stub)
 }
 
 func TestStubRoutesReturnNotImplemented(t *testing.T) {
