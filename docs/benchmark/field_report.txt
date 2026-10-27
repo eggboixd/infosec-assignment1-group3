@@ -1,0 +1,4 @@
+bytes 119
+aes enc med=34.65µs p95=135.456µs dec med=28.329µs p95=126.378µs
+des enc med=59.928µs p95=184.308µs dec med=54.131µs p95=180.206µs
+rc4 enc med=35.182µs p95=142.17µs dec med=30.805µs p95=137.133µs
