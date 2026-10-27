@@ -389,3 +389,6 @@ algorithms (docs/decisions.md D35). For the cipher alone, without HMAC, storage 
 ```bash
 go test -run '^$' -bench . ./internal/crypto/
 ```
+
+Measured results from two machines, with every method compared on one of them, are in
+[docs/benchmark/README.md](benchmark/README.md).
