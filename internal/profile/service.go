@@ -177,6 +177,20 @@ func (s *Service) Get(ctx context.Context, userID bson.ObjectID, alg crypto.Algo
 	return &data, nil
 }
 
+// HasProfile reports whether userID has saved a profile. It decrypts
+// nothing and records no benchmark, so it can run on every page view (the
+// scholarship portal checks it before an application, D38).
+func (s *Service) HasProfile(ctx context.Context, userID bson.ObjectID) (bool, error) {
+	switch _, err := s.store.FindByUserID(ctx, userID); {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, ErrNotFound):
+		return false, nil
+	default:
+		return false, err
+	}
+}
+
 // sealField encrypts one value with one algorithm.
 //
 // EncryptField takes no context, so the Envelope cannot add to the
