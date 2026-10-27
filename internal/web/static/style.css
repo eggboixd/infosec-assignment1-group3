@@ -259,6 +259,7 @@ button:disabled { opacity: 0.7; cursor: progress; }
 }
 .inline-form label { display: grid; gap: 0.3rem; font-weight: 700; }
 .inline-form select { width: auto; min-width: 12rem; }
+.inline-form input { width: auto; min-width: min(16rem, 100%); }
 
 /* ---------- Messages ---------- */
 
@@ -361,6 +362,11 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .file-name { font-weight: 700; overflow-wrap: anywhere; }
 
+/* Wide tables (the benchmark summary) scroll inside their card rather
+   than widening the page. */
+.table-scroll { overflow-x: auto; }
+.table-scroll td { white-space: nowrap; }
+
 .kind {
   display: inline-block;
   padding: 0.1rem 0.6rem;
@@ -384,6 +390,35 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   text-decoration: none;
 }
 .alg-links a:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+/* ---------- Application checklist (/files) ---------- */
+
+.progress { margin-top: 0.4rem; }
+.checklist { list-style: none; display: grid; gap: 0.75rem; }
+.slot {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 2px solid var(--line);
+  border-radius: 1rem;
+  background: var(--card);
+}
+.slot--done { background: var(--mint); }
+.slot-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.slot-head h3 { margin: 0; }
+.status {
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.status--done { background: var(--card); }
+.status--missing { background: var(--butter); }
+.slot .file-name { font-weight: 800; overflow-wrap: anywhere; }
+.slot-actions, .slot-form { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 0.6rem; }
+.slot-form label { flex: 1 1 14rem; min-width: 0; }
+.slot-form input[type="file"] { width: 100%; }
 
 /* Phones: each table row becomes a small card, labelled from data-label. */
 @media (max-width: 600px) {

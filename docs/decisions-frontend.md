@@ -156,3 +156,23 @@ Missing keys in a `gin.H` are simply falsy in `if`/`with`.
 - **Why:** one class swap, all rules in `mascot.css`, and reduced motion is already covered by the `.mascot *` rule, so
   the page keeps a static smiling face. The new text/background pair (accent on lavender) was added to
   `TestThemeContrast`.
+
+## 16. The UI tells the scholarship application story: BeasiswaKu, a checklist and applicant data
+- **Choice:** the brand is **BeasiswaKu** (title, nav, homepage, footer). `/files` becomes "My application documents":
+  six slots (KTP, CV, transcript, recommendation letter, salary slip, intro video), each with its accepted types, an
+  Uploaded/Missing badge, its own upload form, AES/DES/RC4 download links and delete. `/profile` becomes "Applicant
+  data" with the same fields. Gembi and the Strawberry-milk theme are unchanged.
+- **Alternatives:** keep one generic upload form with a kind dropdown (cannot show what is still missing); group the
+  checklist by kind only (four slots share `document`, see D37); name the brand "Gembi Scholar" or "Strawberry
+  Scholarship Portal" (the second is too long for the navbar on a phone).
+- **Why:** the report's scenario is a scholarship application, and the checklist makes "which document is missing"
+  visible. Each slot's form sends the `slot` field before `file`, so the server checks the slot (and the extensions it
+  accepts) before reading any bytes. The page data is built in Go (`files.BuildChecklist`), so the template has no
+  logic and a test renders the real function's output.
+- **Files that fit no slot** (uploaded before slots existed, or a second file in a filled slot) are listed under
+  "Other files", so nothing is hidden and everything can still be deleted.
+- **Deleting reloads the page** (`HX-Refresh` header) instead of removing one row, because a deleted file turns its slot
+  back to Missing and shows its upload form again. The CSP is unchanged: no inline script or style was added.
+- **Trade-off:** the accepted extensions per slot (for example DOC/DOCX for the recommendation letter, a PDF is not
+  accepted) follow the report's scenario and live in one table in `internal/files/file.go`.
+

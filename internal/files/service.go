@@ -84,6 +84,19 @@ func objectKey(ownerID, fileID bson.ObjectID, alg crypto.Algorithm) string {
 // If anything fails, the objects already written are deleted and no
 // metadata is inserted. The browser-supplied Content-Type is not used.
 func (s *Service) Upload(ctx context.Context, ownerID bson.ObjectID, kind Kind, filename string, r io.Reader) (*FileRecord, error) {
+	return s.upload(ctx, ownerID, kind, "", filename, r)
+}
+
+// UploadSlot is Upload for one application slot: the kind comes from the
+// slot, and the extension must also be one the slot accepts.
+func (s *Service) UploadSlot(ctx context.Context, ownerID bson.ObjectID, slot SlotInfo, filename string, r io.Reader) (*FileRecord, error) {
+	if !slot.AllowsExt(filename) {
+		return nil, ErrMIMENotAllowed
+	}
+	return s.upload(ctx, ownerID, slot.Kind, slot.Slot, filename, r)
+}
+
+func (s *Service) upload(ctx context.Context, ownerID bson.ObjectID, kind Kind, slot Slot, filename string, r io.Reader) (*FileRecord, error) {
 	filename = cleanFilename(filename)
 	br := bufio.NewReaderSize(r, sniffLen)
 	head, err := br.Peek(sniffLen)
@@ -102,6 +115,7 @@ func (s *Service) Upload(ctx context.Context, ownerID bson.ObjectID, kind Kind, 
 		ID:        bson.NewObjectID(),
 		OwnerID:   ownerID,
 		Kind:      kind,
+		Slot:      slot,
 		MIMEType:  mimeType,
 		Variants:  map[crypto.Algorithm]Variant{},
 		CreatedAt: s.now().UTC(),
@@ -314,7 +328,7 @@ func (s *Service) List(ctx context.Context, ownerID bson.ObjectID) ([]FileView, 
 			name = nameUnavailable
 		}
 		out = append(out, FileView{
-			ID: rec.ID, Name: name, NameOK: ok, Kind: rec.Kind, Size: rec.Size, CreatedAt: rec.CreatedAt,
+			ID: rec.ID, Name: name, NameOK: ok, Kind: rec.Kind, Slot: rec.Slot, Size: rec.Size, CreatedAt: rec.CreatedAt,
 		})
 	}
 	return out, nil

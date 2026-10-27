@@ -72,6 +72,69 @@ func (k Kind) MaxSize() int64 {
 	return maxSize[k]
 }
 
+// Slot is the application document a file fills in the scholarship portal
+// (docs/decisions-frontend.md). Several slots share the document kind, so
+// the kind alone cannot say which one a file belongs to.
+type Slot string
+
+// Application slots, in checklist order. The string values come from the
+// upload form's slot field.
+const (
+	SlotKTP            Slot = "ktp"
+	SlotCV             Slot = "cv"
+	SlotTranscript     Slot = "transcript"
+	SlotRecommendation Slot = "recommendation"
+	SlotSalary         Slot = "salary"
+	SlotIntroVideo     Slot = "intro_video"
+)
+
+// ErrUnknownSlot is returned for a slot outside the constants above.
+var ErrUnknownSlot = errors.New("files: unknown slot")
+
+// SlotInfo describes one application slot.
+type SlotInfo struct {
+	Slot  Slot
+	Label string
+	Kind  Kind
+	// Exts are the accepted extensions, lowercase with the dot. They narrow
+	// the kind's allowlist (a salary slip must be a spreadsheet, not a PDF).
+	Exts []string
+}
+
+// slots lists the application checklist, in display order.
+var slots = []SlotInfo{
+	{SlotKTP, "KTP (ID card scan)", KindIDCard, []string{".jpg", ".jpeg", ".png"}},
+	{SlotCV, "CV", KindDocument, []string{".pdf"}},
+	{SlotTranscript, "Academic transcript", KindDocument, []string{".pdf"}},
+	{SlotRecommendation, "Recommendation letter", KindDocument, []string{".doc", ".docx"}},
+	{SlotSalary, "Parents' salary slip", KindDocument, []string{".xls", ".xlsx"}},
+	{SlotIntroVideo, "Self-introduction video", KindVideo, []string{".mp4", ".webm"}},
+}
+
+// Slots returns a copy of the application checklist in display order.
+func Slots() []SlotInfo {
+	out := slices.Clone(slots)
+	for i := range out {
+		out[i].Exts = slices.Clone(out[i].Exts)
+	}
+	return out
+}
+
+// ParseSlot converts form input into the SlotInfo it names.
+func ParseSlot(s string) (SlotInfo, error) {
+	for _, si := range slots {
+		if string(si.Slot) == s {
+			return si, nil
+		}
+	}
+	return SlotInfo{}, fmt.Errorf("%w: %q", ErrUnknownSlot, s)
+}
+
+// AllowsExt reports whether filename has an extension the slot accepts.
+func (si SlotInfo) AllowsExt(filename string) bool {
+	return slices.Contains(si.Exts, strings.ToLower(path.Ext(filename)))
+}
+
 // ParseKind converts form input into a Kind.
 func ParseKind(s string) (Kind, error) {
 	k := Kind(s)
@@ -186,6 +249,9 @@ type FileRecord struct {
 	ID      bson.ObjectID `bson:"_id,omitempty"`
 	OwnerID bson.ObjectID `bson:"owner_id"`
 	Kind    Kind          `bson:"kind"`
+	// Slot is the application document this file fills. Empty for files
+	// uploaded before slots existed.
+	Slot Slot `bson:"slot,omitempty"`
 	// FileName is the original filename, encrypted with each algorithm.
 	FileName crypto.SealedSet `bson:"file_name"`
 	MIMEType string           `bson:"mime_type"`
@@ -203,6 +269,7 @@ type FileView struct {
 	// Name then holds a placeholder.
 	NameOK    bool
 	Kind      Kind
+	Slot      Slot
 	Size      int64
 	CreatedAt time.Time
 }

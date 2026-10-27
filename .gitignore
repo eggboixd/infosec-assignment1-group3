@@ -6,6 +6,9 @@
 *.out
 coverage.*
 
+# Benchmark runs (scripts/bench); copy a final run into docs/ to commit it
+/bench-results/
+
 # Secrets and local overrides
 .env
 .env.*

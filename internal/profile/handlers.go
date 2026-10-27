@@ -21,7 +21,7 @@ const (
 	msgIntegrity    = "Your stored data failed its integrity check, so it was not shown."
 	msgLoadFailed   = "Your data could not be loaded. Please try again."
 	profileTemplate = "profile.html"
-	profileTitle    = "Private data"
+	profileTitle    = "Applicant data"
 )
 
 // Handler serves the profile page.

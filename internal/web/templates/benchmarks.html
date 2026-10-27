@@ -1,6 +1,8 @@
 {{define "benchmarks.html"}}{{template "header" .}}
-{{/* Data: .Records ([]benchmark.Record), newest first, and .Summaries
-     (averages grouped by algorithm and operation). */}}
+{{/* Data: .Summary ([]benchmark.Stat), .Total (benchmark.Stat with Count and
+     Bytes), .Records ([]benchmark.Record, newest first, at most 100) and
+     .Since (the raw ?since= value). Gembi is smiling when there are
+     measurements and sleepy when there are none. */}}
 <section class="card">
   <div class="page-head">
     <div class="gembi" data-gembi data-base-mood="{{if .Records}}smiling{{else}}sleepy{{end}}">
@@ -8,55 +10,92 @@
     </div>
     <div>
       <h1>Benchmarks</h1>
-      <p>Recorded time for encryption, decryption, and downloads. Download the same file repeatedly to collect comparable measurements.</p>
+      <p>Running time of every encryption, decryption and download, per algorithm. Download the same file many times to collect data for the report.</p>
     </div>
   </div>
+  <form method="get" action="/benchmarks" class="inline-form">
+    <label>Only records since
+      <input type="text" name="since" value="{{.Since}}" placeholder="2026-10-27T09:00:00Z" inputmode="text" autocomplete="off">
+    </label>
+    <button type="submit">Filter</button>
+    {{if .Since}}<a class="btn" href="/benchmarks">Show all</a>{{end}}
+  </form>
+  <p class="hint">A time in RFC 3339 format, UTC. The benchmark script prints the value to use for its run.</p>
 </section>
 
-<section class="card" aria-labelledby="records-title">
+<section class="card" aria-labelledby="summary-title">
   <div class="section-head">
-    <h2 id="records-title">Measurements</h2>
-    <a class="btn btn--small" href="/benchmarks/export.csv">Export CSV</a>
+    <h2 id="summary-title">Summary</h2>
+    <a class="btn btn--small" href="/benchmarks/export.csv{{if .Since}}?since={{urlquery .Since}}{{end}}">Export CSV</a>
   </div>
-  {{if .Records}}
-  <h3>Average by algorithm and operation</h3>
+  {{if .Summary}}
+  <p class="muted">{{.Total.Count}} records, {{humanBytes .Total.Bytes}} processed. Crypto time is cipher and HMAC work only; total time includes storage and network.</p>
+  <div class="table-scroll">
   <table class="responsive-table">
-    <thead><tr><th scope="col">Algorithm</th><th scope="col">Operation</th><th scope="col" class="num">Samples</th><th scope="col" class="num">Crypto (ms)</th><th scope="col" class="num">Total (ms)</th></tr></thead>
-    <tbody>
-      {{range .Summaries}}
+    <thead>
       <tr>
-        <td data-label="Algorithm">{{.Algorithm}}</td>
+        <th scope="col">Operation</th>
+        <th scope="col">Data</th>
+        <th scope="col">Size</th>
+        <th scope="col">Algorithm</th>
+        <th scope="col" class="num">Runs</th>
+        <th scope="col" class="num">Crypto mean ± sd (ms)</th>
+        <th scope="col" class="num">Crypto min (ms)</th>
+        <th scope="col" class="num">Total mean (ms)</th>
+        <th scope="col" class="num">Crypto MiB/s</th>
+        <th scope="col" class="num">Total MiB/s</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Summary}}
+      <tr>
         <td data-label="Operation">{{.Operation}}</td>
-        <td class="num" data-label="Samples">{{.Count}}</td>
-        <td class="num" data-label="Crypto (ms)">{{printf "%.3f" .CryptoMillis}}</td>
-        <td class="num" data-label="Total (ms)">{{printf "%.3f" .TotalMillis}}</td>
+        <td data-label="Data">{{if .FileKind}}{{.FileKind}}{{else}}private data{{end}}</td>
+        <td data-label="Size">{{.Size.Label}}</td>
+        <td data-label="Algorithm">{{template "algLabel" .Algorithm}}</td>
+        <td class="num" data-label="Runs">{{.Count}}</td>
+        <td class="num" data-label="Crypto mean ± sd (ms)">{{printf "%.3f" .Crypto.MeanMS}} ± {{printf "%.3f" .Crypto.StdDevMS}}</td>
+        <td class="num" data-label="Crypto min (ms)">{{printf "%.3f" .Crypto.MinMS}}</td>
+        <td class="num" data-label="Total mean (ms)">{{printf "%.3f" .Total.MeanMS}}</td>
+        <td class="num" data-label="Crypto MiB/s">{{printf "%.1f" .CryptoMiBPerSec}}</td>
+        <td class="num" data-label="Total MiB/s">{{printf "%.1f" .TotalMiBPerSec}}</td>
       </tr>
       {{end}}
     </tbody>
   </table>
-
-  <h3>Recent measurements (up to 1,000)</h3>
-  <table class="responsive-table">
-    <thead><tr><th scope="col">Time</th><th scope="col">Algorithm</th><th scope="col">Operation</th><th scope="col">File kind</th><th scope="col" class="num">Bytes</th><th scope="col" class="num">Crypto (ms)</th><th scope="col" class="num">Total (ms)</th></tr></thead>
-    <tbody>
-      {{range .Records}}
-      <tr>
-        <td data-label="Time"><time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2 Jan 2006, 15:04:05"}}</time></td>
-        <td data-label="Algorithm">{{.Algorithm}}</td>
-        <td data-label="Operation">{{.Operation}}</td>
-        <td data-label="File kind">{{if .FileKind}}{{.FileKind}}{{else}}—{{end}}</td>
-        <td class="num" data-label="Bytes">{{.Bytes}}</td>
-        <td class="num" data-label="Crypto (ms)">{{printf "%.3f" (.CryptoDuration | milliseconds)}}</td>
-        <td class="num" data-label="Total (ms)">{{printf "%.3f" (.TotalDuration | milliseconds)}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+  </div>
   {{else}}
   <div class="empty-state">
     <strong>No measurements yet.</strong>
-    <span>Upload or download a file and the app will time each cipher.</span>
+    <span>Upload or download a file and Gembi will time how long each cipher takes.</span>
   </div>
   {{end}}
 </section>
+
+{{if .Records}}
+<section class="card" aria-labelledby="records-title">
+  <div class="section-head">
+    <h2 id="records-title">Latest measurements</h2>
+  </div>
+  <table class="responsive-table">
+    <thead><tr><th scope="col">Time</th><th scope="col">Algorithm</th><th scope="col">Operation</th><th scope="col">Data</th><th scope="col" class="num">Bytes</th><th scope="col" class="num">Crypto (ms)</th><th scope="col" class="num">Total (ms)</th></tr></thead>
+    <tbody>
+      {{range .Records}}
+      <tr>
+        <td data-label="Time"><time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05.000Z07:00"}}">{{.CreatedAt.Format "2 Jan 15:04:05"}}</time></td>
+        <td data-label="Algorithm">{{template "algLabel" .Algorithm}}</td>
+        <td data-label="Operation">{{.Operation}}</td>
+        <td data-label="Data">{{if .FileKind}}{{.FileKind}}{{else}}private data{{end}}</td>
+        <td class="num" data-label="Bytes">{{humanBytes .Bytes}}</td>
+        <td class="num" data-label="Crypto (ms)">{{printf "%.3f" .CryptoMS}}</td>
+        <td class="num" data-label="Total (ms)">{{printf "%.3f" .TotalMS}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
 {{template "footer" .}}{{end}}
+
+{{/* algLabel names a crypto.Algorithm for the tables. */}}
+{{define "algLabel"}}{{if eq (print .) "aes"}}AES-256{{else if eq (print .) "des"}}DES{{else if eq (print .) "rc4"}}RC4{{else}}{{.}}{{end}}{{end}}

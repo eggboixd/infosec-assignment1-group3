@@ -2,7 +2,6 @@ package web
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
-	"github.com/eggboixd/infosec-assignment1-group3/internal/benchmark"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
 )
 
@@ -35,9 +33,9 @@ func (p *authProbe) middleware(c *gin.Context) {
 	_, p.sawUser = auth.CurrentUser(c)
 }
 
-// newTestEngine builds the real engine with stub file handlers and an empty
-// in-memory benchmark store. Auth, limits, and CSRF are exercised here; feature
-// behavior is covered by the feature package tests.
+// newTestEngine builds the real engine with stub handlers. The stubs never
+// touch their services, so nil services are safe. Implemented routes (such as
+// /profile, tested in internal/profile) are not requested here.
 func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 	t.Helper()
 	probe := &authProbe{original: func(c *gin.Context) {
@@ -50,7 +48,7 @@ func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 			auth.NewHandler(nil, nil),
 			profile.NewHandler(nil),
 			stubFiles{},
-			benchmark.NewHandler(benchmarkTestStore{}),
+			stubBenchmarks{},
 		},
 		RequireAuth: probe.middleware,
 	})
@@ -60,19 +58,9 @@ func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 	return r, probe
 }
 
-type benchmarkTestStore struct{}
-
-func (benchmarkTestStore) List(context.Context, int64) ([]benchmark.Record, error) {
-	return nil, nil
-}
-
-func (benchmarkTestStore) Iterate(context.Context, func(benchmark.Record) error) error {
-	return nil
-}
-
-// stubFiles mounts the file routes with handlers that only answer 501.
-// These tests exercise the engine's middleware (auth, body limits, CSRF),
-// not the files feature, which is tested in internal/files.
+// stubFiles and stubBenchmarks mount the feature routes with handlers that
+// only answer 501. These tests exercise the engine's middleware (auth, body
+// limits, CSRF), not the features, which are tested in their own packages.
 type stubFiles struct{}
 
 func (stubFiles) RegisterRoutes(_, protected *gin.RouterGroup) {
@@ -81,6 +69,14 @@ func (stubFiles) RegisterRoutes(_, protected *gin.RouterGroup) {
 	protected.POST("/files", stub)
 	protected.GET("/files/:id/download", stub)
 	protected.DELETE("/files/:id", stub)
+}
+
+type stubBenchmarks struct{}
+
+func (stubBenchmarks) RegisterRoutes(_, protected *gin.RouterGroup) {
+	stub := func(c *gin.Context) { c.Status(http.StatusNotImplemented) }
+	protected.GET("/benchmarks", stub)
+	protected.GET("/benchmarks/export.csv", stub)
 }
 
 func TestStubRoutesReturnNotImplemented(t *testing.T) {
@@ -93,6 +89,8 @@ func TestStubRoutesReturnNotImplemented(t *testing.T) {
 		{http.MethodPost, "/files", true},
 		{http.MethodGet, "/files/0123456789abcdef01234567/download?alg=aes", true},
 		{http.MethodDelete, "/files/0123456789abcdef01234567", true},
+		{http.MethodGet, "/benchmarks", true},
+		{http.MethodGet, "/benchmarks/export.csv", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
@@ -114,31 +112,6 @@ func TestStubRoutesReturnNotImplemented(t *testing.T) {
 				t.Error("RequireAuth did not provide a current user")
 			}
 		})
-	}
-}
-
-func TestBenchmarkRoutesRenderAndExport(t *testing.T) {
-	r, probe := newTestEngine(t, 1<<20)
-
-	page := httptest.NewRecorder()
-	r.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/benchmarks", nil))
-	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "No measurements yet.") {
-		t.Errorf("benchmark page = %d, want 200 with empty state", page.Code)
-	}
-
-	csvResponse := httptest.NewRecorder()
-	r.ServeHTTP(csvResponse, httptest.NewRequest(http.MethodGet, "/benchmarks/export.csv", nil))
-	if csvResponse.Code != http.StatusOK {
-		t.Errorf("CSV export status = %d, want 200", csvResponse.Code)
-	}
-	if got := csvResponse.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/csv") {
-		t.Errorf("CSV Content-Type = %q", got)
-	}
-	if got, want := csvResponse.Body.String(), "created_at,algorithm,operation,file_kind,bytes,crypto_ns,total_ns\n"; got != want {
-		t.Errorf("CSV = %q, want header %q", got, want)
-	}
-	if probe.hits != 2 || !probe.sawUser {
-		t.Errorf("protected benchmark routes ran auth %d times (saw user %v), want 2 and true", probe.hits, probe.sawUser)
 	}
 }
 

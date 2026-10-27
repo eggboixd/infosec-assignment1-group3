@@ -1,52 +1,74 @@
 {{define "files.html"}}{{template "header" .}}
-{{/* Data:
-       .Files         rows from files.Service.List. Each row needs .ID (a
-                      bson.ObjectID), .Name (the decrypted original filename;
-                      FileRecord only holds it encrypted, so feature/file-storage
-                      provides the plaintext as a view field), .Kind, .Size
+{{/* Data (built by files.BuildChecklist in feature/file-storage's handler):
+       .Slots         the application checklist, one row per required document,
+                      each with .Slot (form value), .Label, .Types (display,
+                      e.g. "DOC, DOCX"), .Accept (file picker filter) and .File:
+                      nil while missing, else the uploaded file with .ID (a
+                      bson.ObjectID), .Name (decrypted filename), .Size
                       (plaintext bytes) and .CreatedAt.
+       .Others        files with no slot (uploaded before slots existed); same
+                      fields as .File plus .Kind.
+       .Uploaded      number of filled slots; .Total the number of slots.
        .JustLoggedIn  true on the first render after login: Gembi unlocks once.
-     Gembi is smiling when there are files and sleepy when there are none; it is
-     busy while an upload is sent and happy when a download starts (mascot.js).
-     The "kind" field must come before "file" so the server can validate it
-     before streaming the upload. */}}
+     Gembi is smiling when something is uploaded and sleepy when nothing is; it
+     is busy while an upload is sent and happy when a download starts
+     (mascot.js). The "slot" field must come before "file" so the server can
+     validate it before streaming the upload. */}}
 <section class="card">
   <div class="page-head">
-    <div class="gembi" data-gembi data-base-mood="{{if .Files}}smiling{{else}}sleepy{{end}}">
-      {{- if .JustLoggedIn}}{{template "mascot" "unlocked"}}{{else if .Files}}{{template "mascot" "smiling"}}{{else}}{{template "mascot" "sleepy"}}{{end -}}
+    <div class="gembi" data-gembi data-base-mood="{{if .Uploaded}}smiling{{else}}sleepy{{end}}">
+      {{- if .JustLoggedIn}}{{template "mascot" "unlocked"}}{{else if .Uploaded}}{{template "mascot" "smiling"}}{{else}}{{template "mascot" "sleepy"}}{{end -}}
     </div>
     <div>
-      <h1>{{with .User}}Hi, {{.Username}}!{{else}}Your files{{end}}</h1>
-      <p>Everything you upload is encrypted three times, with AES-256, DES and RC4. You pick which copy to decrypt when you download.</p>
+      <h1>{{with .User}}Hi, {{.Username}}! {{end}}My application documents</h1>
+      <p>Upload each required document once. Everything is encrypted three times, with AES-256, DES and RC4, and you pick which copy to decrypt when you download.</p>
+      <p class="progress"><strong>{{.Uploaded}} of {{.Total}}</strong> documents uploaded.</p>
     </div>
   </div>
 </section>
 
-<section class="card" aria-labelledby="upload-title">
-  <h2 id="upload-title">Upload a file</h2>
-  <form method="post" action="/files" enctype="multipart/form-data" class="stack" data-gembi-busy="Locking it up…">
-    <label>Kind
-      <select name="kind" required>
-        <option value="idcard">ID card (JPEG, PNG)</option>
-        <option value="document">Document (PDF, DOC, DOCX, XLS, XLSX)</option>
-        <option value="video">Video (MP4, WebM)</option>
-      </select>
-    </label>
-    <label>File
-      <input name="file" type="file" required accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.mp4,.webm">
-      <span class="hint">The server checks the type again; this list only filters the file picker.</span>
-    </label>
-    <button type="submit" class="btn--primary">Encrypt &amp; upload</button>
-  </form>
+<section class="card" aria-labelledby="checklist-title">
+  <h2 id="checklist-title">Application checklist</h2>
+  <ul class="checklist">
+    {{range .Slots}}
+    <li class="slot {{if .File}}slot--done{{else}}slot--missing{{end}}">
+      <div class="slot-head">
+        <h3>{{.Label}}</h3>
+        {{if .File}}<span class="status status--done">Uploaded</span>{{else}}<span class="status status--missing">Missing</span>{{end}}
+      </div>
+      <p class="hint">Accepted: {{.Types}}</p>
+      {{with .File}}
+      <p class="file-name">{{.Name}}</p>
+      <p class="muted">{{humanBytes .Size}} · <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2 Jan 2006, 15:04"}}</time></p>
+      <div class="slot-actions">
+        <div class="alg-links" role="group" aria-label="Download as">
+          <a href="/files/{{.ID.Hex}}/download?alg=aes" data-gembi-download>AES</a>
+          <a href="/files/{{.ID.Hex}}/download?alg=des" data-gembi-download>DES</a>
+          <a href="/files/{{.ID.Hex}}/download?alg=rc4" data-gembi-download>RC4</a>
+        </div>
+        <button type="button" class="btn--danger btn--small"
+                hx-delete="/files/{{.ID.Hex}}" hx-swap="none"
+                hx-confirm="Delete this file and all three encrypted copies?">Delete</button>
+      </div>
+      {{else}}
+      <form method="post" action="/files" enctype="multipart/form-data" class="slot-form" data-gembi-busy="Locking it up…">
+        <input type="hidden" name="slot" value="{{.Slot}}">
+        <label>Choose file
+          <input name="file" type="file" required accept="{{.Accept}}">
+        </label>
+        <button type="submit" class="btn--primary btn--small">Encrypt &amp; upload</button>
+      </form>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+  <p class="hint">The server checks the type again; the accepted list only filters the file picker.</p>
 </section>
 
-<section class="card" aria-labelledby="files-title">
-  <h2 id="files-title">Your files</h2>
-  <div class="empty-state" data-gembi-empty {{if .Files}}hidden{{end}}>
-    <strong>Nothing stored yet.</strong>
-    <span>Gembi is napping. Upload an ID card, a document or a video and it will lock it up.</span>
-  </div>
-  {{if .Files}}
+{{if .Others}}
+<section class="card" aria-labelledby="others-title">
+  <h2 id="others-title">Other files</h2>
+  <p class="muted">Files that are not part of the checklist.</p>
   <table class="responsive-table">
     <thead>
       <tr>
@@ -58,8 +80,8 @@
         <th scope="col"><span class="visually-hidden">Delete</span></th>
       </tr>
     </thead>
-    <tbody data-gembi-list>
-      {{range .Files}}
+    <tbody>
+      {{range .Others}}
       <tr>
         <td class="file-name" data-label="Name">{{.Name}}</td>
         <td data-label="Kind"><span class="kind kind--{{.Kind}}">{{template "kindLabel" .Kind}}</span></td>
@@ -74,15 +96,15 @@
         </td>
         <td class="actions">
           <button type="button" class="btn--danger btn--small"
-                  hx-delete="/files/{{.ID.Hex}}" hx-target="closest tr" hx-swap="outerHTML"
+                  hx-delete="/files/{{.ID.Hex}}" hx-swap="none"
                   hx-confirm="Delete this file and all three encrypted copies?">Delete</button>
         </td>
       </tr>
       {{end}}
     </tbody>
   </table>
-  {{end}}
 </section>
+{{end}}
 {{template "footer" .}}{{end}}
 
 {{/* kindLabel turns a files.Kind into a label for the table. */}}

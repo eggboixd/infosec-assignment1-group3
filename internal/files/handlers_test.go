@@ -102,7 +102,7 @@ func TestHTTPUploadListDownloadDelete(t *testing.T) {
 	pdf := sample(t, "sample.pdf")
 
 	empty := r.do(httptest.NewRequest(http.MethodGet, "/files", nil))
-	if empty.Code != http.StatusOK || !strings.Contains(empty.Body.String(), "Nothing stored yet") {
+	if empty.Code != http.StatusOK || !strings.Contains(empty.Body.String(), "0 of 6") {
 		t.Fatalf("empty list: %d", empty.Code)
 	}
 
@@ -116,7 +116,7 @@ func TestHTTPUploadListDownloadDelete(t *testing.T) {
 	}
 
 	list := r.do(httptest.NewRequest(http.MethodGet, "/files", nil)).Body.String()
-	for _, want := range []string{"Laporan Akhir.pdf", "Hi, budi!", "/files/" + rec.ID.Hex() + "/download?alg=des", `hx-delete="/files/` + rec.ID.Hex()} {
+	for _, want := range []string{"Laporan Akhir.pdf", "Hi, budi!", "Other files", "/files/" + rec.ID.Hex() + "/download?alg=des", `hx-delete="/files/` + rec.ID.Hex()} {
 		if !strings.Contains(list, want) {
 			t.Errorf("list page is missing %q", want)
 		}
@@ -135,8 +135,8 @@ func TestHTTPUploadListDownloadDelete(t *testing.T) {
 	}
 
 	del := r.do(httptest.NewRequest(http.MethodDelete, "/files/"+rec.ID.Hex(), nil))
-	if del.Code != http.StatusOK || del.Body.Len() != 0 {
-		t.Errorf("delete: %d with %d bytes, want 200 empty", del.Code, del.Body.Len())
+	if del.Code != http.StatusOK || del.Body.Len() != 0 || del.Header().Get("HX-Refresh") != "true" {
+		t.Errorf("delete: %d with %d bytes, HX-Refresh %q; want 200 empty with a refresh", del.Code, del.Body.Len(), del.Header().Get("HX-Refresh"))
 	}
 	if r.objects.Len() != 0 || r.meta.Len() != 0 {
 		t.Error("delete left data behind")
@@ -158,7 +158,7 @@ func TestHTTPUploadErrors(t *testing.T) {
 		{"file before kind", []part{{name: "file", filename: "a.pdf", data: pdf}, {name: "kind", data: []byte("document")}}, http.StatusBadRequest, "form was incomplete"},
 		{"no file", []part{{name: "kind", data: []byte("document")}}, http.StatusBadRequest, "form was incomplete"},
 		{"file part without filename", []part{{name: "kind", data: []byte("document")}, {name: "file", data: pdf}}, http.StatusBadRequest, "form was incomplete"},
-		{"wrong type for kind", []part{{name: "kind", data: []byte("idcard")}, {name: "file", filename: "a.pdf", data: pdf}}, http.StatusUnsupportedMediaType, "isn&#39;t allowed"},
+		{"wrong type for kind", []part{{name: "kind", data: []byte("idcard")}, {name: "file", filename: "a.pdf", data: pdf}}, http.StatusUnsupportedMediaType, "isn&#39;t accepted"},
 		{"empty file", []part{{name: "kind", data: []byte("document")}, {name: "file", filename: "a.pdf"}}, http.StatusBadRequest, "That file is empty"},
 	}
 	for _, tt := range tests {
@@ -306,6 +306,15 @@ func TestHTTPDownloadRecordsBenchmark(t *testing.T) {
 		ops = append(ops, string(b.Algorithm)+":"+string(b.Operation))
 	}
 	if got := strings.Join(ops[3:], ","); got != "aes:decrypt,aes:download" {
-		t.Errorf("records after the upload = %s, want aes:decrypt,aes:download", got)
+		t.Fatalf("records after the upload = %s, want aes:decrypt,aes:download", got)
+	}
+	// The download contains the decrypt, so it carries the same crypto time.
+	recs := r.bench.Records()
+	decrypt, download := recs[3], recs[4]
+	if decrypt.CryptoDuration <= 0 || download.CryptoDuration != decrypt.CryptoDuration {
+		t.Errorf("download crypto %v, decrypt crypto %v; want equal and positive", download.CryptoDuration, decrypt.CryptoDuration)
+	}
+	if download.TotalDuration < decrypt.TotalDuration {
+		t.Errorf("download total %v is less than the decrypt it contains (%v)", download.TotalDuration, decrypt.TotalDuration)
 	}
 }
