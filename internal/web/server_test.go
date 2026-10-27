@@ -47,6 +47,7 @@ func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 		Features: []RouteRegistrar{
 			auth.NewHandler(nil, nil),
 			profile.NewHandler(nil),
+			stubHome{},
 			stubFiles{},
 			stubBenchmarks{},
 		},
@@ -58,7 +59,7 @@ func newTestEngine(t *testing.T, maxBody int64) (*gin.Engine, *authProbe) {
 	return r, probe
 }
 
-// stubFiles and stubBenchmarks mount the feature routes with handlers that
+// stubFiles and stubBenchmarks mount the protected feature routes with handlers that
 // only answer 501. These tests exercise the engine's middleware (auth, body
 // limits, CSRF), not the features, which are tested in their own packages.
 type stubFiles struct{}
@@ -69,6 +70,13 @@ func (stubFiles) RegisterRoutes(_, protected *gin.RouterGroup) {
 	protected.POST("/files", stub)
 	protected.GET("/files/:id/download", stub)
 	protected.DELETE("/files/:id", stub)
+}
+
+// stubHome mounts "/" on the public group, as applications.Handler does.
+type stubHome struct{}
+
+func (stubHome) RegisterRoutes(public, _ *gin.RouterGroup) {
+	public.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
 }
 
 type stubBenchmarks struct{}
@@ -148,8 +156,10 @@ func TestAuthPagesRender(t *testing.T) {
 	}
 }
 
-// "/" is public: a visitor without a session sees the landing page.
-func TestRootRendersLandingPage(t *testing.T) {
+// "/" is mounted by a feature (the scholarship home page, tested in
+// internal/applications) on the public group, so RequireAuth never runs for
+// it and the engine's security headers still apply.
+func TestRootIsPublic(t *testing.T) {
 	r, probe := newTestEngine(t, 1<<20)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
@@ -157,37 +167,11 @@ func TestRootRendersLandingPage(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}
-	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
-		t.Errorf("Content-Type = %q, want text/html", ct)
-	}
 	if w.Header().Get("Content-Security-Policy") == "" {
 		t.Error("missing Content-Security-Policy header")
 	}
-	body := w.Body.String()
-	for _, want := range []string{"mascot--hello", `href="/login"`, `href="/register"`} {
-		if !strings.Contains(body, want) {
-			t.Errorf("body is missing %q", want)
-		}
-	}
 	if probe.hits != 0 {
 		t.Errorf("RequireAuth ran %d times on a public page, want 0", probe.hits)
-	}
-}
-
-// A logged-in user skips the landing page. Options.Session stands in for
-// auth.LoadSession, which main.go installs on every request.
-func TestRootRedirectsLoggedInUser(t *testing.T) {
-	r, err := NewEngine(Options{
-		MaxBodyBytes: 1024,
-		Session:      func(c *gin.Context) { auth.SetCurrentUser(c, &auth.User{Username: "tester"}) },
-	})
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/files" {
-		t.Errorf("got %d Location=%q, want 303 /files", w.Code, w.Header().Get("Location"))
 	}
 }
 

@@ -23,6 +23,10 @@ const (
 	msgServer        = "Something went wrong on our side. Please try again."
 )
 
+// homePath is where login sends the user: the scholarship grid, which shows
+// the status of each application (docs/decisions-frontend.md 19).
+const homePath = "/"
+
 // Attempts allowed per client IP per minute (docs/decisions.md D29).
 const (
 	loginAttemptsPerMinute    = 10
@@ -62,10 +66,10 @@ func NewHandler(svc *Service, sessions *SessionManager) *Handler {
 }
 
 // showRegister renders the empty registration form, or sends a logged-in
-// user to their files.
+// user to the scholarship home page.
 func (h *Handler) showRegister(c *gin.Context) {
 	if _, ok := CurrentUser(c); ok {
-		c.Redirect(http.StatusSeeOther, "/files")
+		c.Redirect(http.StatusSeeOther, homePath)
 		return
 	}
 	h.renderRegister(c, http.StatusOK, "", nil)
@@ -126,10 +130,10 @@ func isAlnum(s string) bool {
 }
 
 // showLogin renders the login form with any one-time message, or sends a
-// logged-in user to their files.
+// logged-in user to the scholarship home page.
 func (h *Handler) showLogin(c *gin.Context) {
 	if _, ok := CurrentUser(c); ok {
-		c.Redirect(http.StatusSeeOther, "/files")
+		c.Redirect(http.StatusSeeOther, homePath)
 		return
 	}
 	h.renderLogin(c, http.StatusOK, "", nil)
@@ -167,7 +171,7 @@ func (h *Handler) login(c *gin.Context) {
 		return
 	}
 	slog.Info("auth: logged in", "user_id", u.ID.Hex())
-	c.Redirect(http.StatusSeeOther, "/files")
+	c.Redirect(http.StatusSeeOther, homePath)
 }
 
 // logout handles POST /logout: it deletes the session server-side, expires

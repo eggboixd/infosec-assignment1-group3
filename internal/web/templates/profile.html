@@ -4,11 +4,12 @@
                  stored yet (or the submitted values when a save failed)
        .Alg      the crypto.Algorithm used to decrypt: aes, des or rc4 (default aes)
        .Errors   validation messages after a failed save (a slice or a map)
-     Gembi is confused when there are errors, smiling when data is stored and
+     Toga is confused when there are errors, smiling when data is stored and
      sleepy when not. It is busy while a save is sent, because the server
      encrypts every field with all three ciphers. */}}
 {{- $alg := print (or .Alg "aes")}}
 <section class="card">
+  {{template "appSteps" "profile"}}
   <div class="page-head">
     <div class="gembi" data-gembi data-base-mood="{{if .Profile}}smiling{{else}}sleepy{{end}}">
       {{- if .Errors}}{{template "mascot" "confused"}}{{else if .Profile}}{{template "mascot" "smiling"}}{{else}}{{template "mascot" "sleepy"}}{{end -}}
@@ -44,7 +45,7 @@
     <ul>{{range .}}<li>{{.}}</li>{{end}}</ul>
   </div>
   {{end}}
-  {{if not .Profile}}<p class="muted">Nothing stored yet. Gembi is napping until you save your applicant data.</p>{{end}}
+  {{if not .Profile}}<p class="muted">Nothing stored yet. Toga is napping until you save your applicant data.</p>{{end}}
   <form method="post" action="/profile" class="stack" data-gembi-busy="Encrypting…">
     <label>Full name
       <input name="full_name" autocomplete="name" required maxlength="100" value="{{with .Profile}}{{.FullName}}{{end}}">

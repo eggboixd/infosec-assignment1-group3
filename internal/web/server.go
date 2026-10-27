@@ -66,7 +66,6 @@ func NewEngine(opts Options) (*gin.Engine, error) {
 	public := r.Group("/")
 	protected := r.Group("/", requireAuth)
 
-	public.GET("/", showHome)
 	for _, f := range opts.Features {
 		f.RegisterRoutes(public, protected)
 	}
