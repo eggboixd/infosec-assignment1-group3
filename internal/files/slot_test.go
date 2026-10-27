@@ -146,3 +146,29 @@ func TestHTTPUploadSlot(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildChecklist(t *testing.T) {
+	id := func(n byte) bson.ObjectID { return bson.ObjectID{n} }
+	cl := BuildChecklist([]FileView{
+		{ID: id(1), Slot: SlotCV},     // newest CV fills the slot
+		{ID: id(2), Slot: SlotCV},     // older CV goes to Others
+		{ID: id(3)},                   // legacy, no slot
+		{ID: id(4), Slot: "passport"}, // unknown slot value
+		{ID: id(5), Slot: SlotIntroVideo},
+	})
+	if cl.Total != 6 || cl.Uploaded != 2 || len(cl.Slots) != 6 {
+		t.Fatalf("total/uploaded/slots = %d/%d/%d, want 6/2/6", cl.Total, cl.Uploaded, len(cl.Slots))
+	}
+	if cl.Slots[1].Slot != SlotCV || cl.Slots[1].File == nil || cl.Slots[1].File.ID != id(1) {
+		t.Errorf("cv slot = %+v, want the newest file", cl.Slots[1])
+	}
+	if cl.Slots[0].File != nil || cl.Slots[0].Accept != ".jpg,.jpeg,.png" || cl.Slots[0].Types != "JPG, JPEG, PNG" {
+		t.Errorf("ktp slot = %+v, want missing with its types", cl.Slots[0])
+	}
+	if len(cl.Others) != 3 || cl.Others[0].ID != id(2) || cl.Others[1].ID != id(3) || cl.Others[2].ID != id(4) {
+		t.Errorf("others = %+v, want files 2, 3, 4 in order", cl.Others)
+	}
+	if empty := BuildChecklist(nil); empty.Uploaded != 0 || len(empty.Slots) != 6 || len(empty.Others) != 0 {
+		t.Errorf("empty checklist = %+v", empty)
+	}
+}

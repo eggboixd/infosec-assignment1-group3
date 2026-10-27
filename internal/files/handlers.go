@@ -21,10 +21,10 @@ import (
 
 // User-facing messages. They never include file contents or names.
 const (
-	msgBadForm      = "The upload form was incomplete. Choose a kind and a file, then try again."
-	msgUnknownKind  = "Unknown file kind. Choose ID card, document or video."
+	msgBadForm      = "The upload form was incomplete. Choose a file and try again."
+	msgUnknownKind  = "Unknown file kind. Use one of the upload buttons on the checklist."
 	msgUnknownSlot  = "Unknown document slot. Use the upload button next to the document you want to add."
-	msgTypeMismatch = "That file type isn't allowed here, or its content doesn't match its extension."
+	msgTypeMismatch = "That file type isn't accepted for this document, or its content doesn't match its extension. Check the accepted types next to the upload button."
 	msgEmpty        = "That file is empty."
 	msgUploadFailed = "The file could not be stored. Please try again."
 	msgLoadFailed   = "Your files could not be loaded. Please try again."
@@ -259,6 +259,9 @@ func (h *Handler) remove(c *gin.Context) {
 	switch err := h.svc.Delete(c.Request.Context(), user.ID, id); {
 	case err == nil:
 		slog.Info("files: deleted", "user_id", user.ID.Hex(), "file_id", id.Hex())
+		// A deleted file frees its checklist slot, so the page is reloaded
+		// rather than patching one row.
+		c.Header("HX-Refresh", "true")
 		c.Status(http.StatusOK)
 	case errors.Is(err, ErrNotFound):
 		c.String(http.StatusNotFound, msgNotFound)
@@ -278,17 +281,22 @@ func (h *Handler) renderList(c *gin.Context, user *auth.User, status int, msg st
 	h.render(c, status, files, msg)
 }
 
-// render passes exactly the data files.html and layout.html document.
+// render passes exactly the data files.html and layout.html document: the
+// application checklist built from files.
 func (h *Handler) render(c *gin.Context, status int, files []FileView, errMsg string) {
 	user, _ := auth.CurrentUser(c)
 	flash := auth.TakeFlash(c)
 	if errMsg != "" {
 		flash = &auth.Flash{Kind: "error", Message: errMsg}
 	}
+	cl := BuildChecklist(files)
 	c.HTML(status, "files.html", gin.H{
-		"Title":        "Files",
+		"Title":        "Application documents",
 		"User":         user,
-		"Files":        files,
+		"Slots":        cl.Slots,
+		"Others":       cl.Others,
+		"Uploaded":     cl.Uploaded,
+		"Total":        cl.Total,
 		"JustLoggedIn": auth.JustLoggedIn(c),
 		"Flash":        flash,
 	})
