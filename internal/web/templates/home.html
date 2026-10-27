@@ -1,29 +1,85 @@
 {{define "home.html"}}{{template "header" .}}
-{{/* Landing page for visitors who are not logged in (showHome in home.go).
-     No data needed. Gembi waves once ("hello"), then settles to smiling. It is
-     decorative: everything it shows is also written in the text. */}}
-<section class="card hero" aria-labelledby="home-title">
-  <div class="gembi gembi--xl" data-gembi data-base-mood="smiling">{{template "mascot" "hello"}}</div>
-  <h1 id="home-title">BeasiswaKu</h1>
-  <p class="hero-pitch">Apply for your university scholarship in one place. Your identity data, KTP scan, CV, transcript and video stay locked up: Gembi encrypts everything three times.</p>
+{{/* Data (built by applications.BuildCards in the applications handler):
+       .Cards         one per scholarship: .ID, .Name, .Sponsor, .Kind, .Amount,
+                      .For, .Summary, .Deadline (time.Time), and the logged-in
+                      student's .State: "" (logged out), "incomplete" (with
+                      .Missing, the number of missing items), "ready",
+                      "submitted" (with .SubmittedAt) or "closed".
+       .User          the logged-in user, or nil.
+       .JustLoggedIn  true on the first page after login: Toga unlocks once.
+     Toga waves on the home page. It is decorative: everything it shows is
+     also written in the text. */}}
+<section class="card certificate hero" aria-labelledby="home-title">
+  <p class="kicker">Yayasan Cendekia Nusantara · BeasiswaKu</p>
+  <h1 id="home-title">Pendaftaran Beasiswa 2027 dibuka</h1>
+  <p class="hero-sub">Scholarship applications for 2027 are open.</p>
+  <hr class="hero-rule">
+  <p class="hero-pitch">Apply for a university scholarship in one place. Fill in your applicant data, upload your documents once, and submit to every scholarship you qualify for.</p>
   <div class="hero-actions">
-    <a class="btn btn--primary" href="/login">Log in</a>
-    <a class="btn" href="/register">Register</a>
+    {{if .User}}
+    <a class="btn btn--primary" href="#scholarships">See scholarships</a>
+    <a class="btn" href="/profile">My application</a>
+    {{else}}
+    <a class="btn btn--primary" href="/register">Create an account</a>
+    <a class="btn" href="/login">Log in</a>
+    {{end}}
+  </div>
+  <div class="gembi gembi--xl" data-gembi data-base-mood="smiling">
+    {{- if .JustLoggedIn}}{{template "mascot" "unlocked"}}{{else}}{{template "mascot" "hello"}}{{end -}}
   </div>
 </section>
 
-<ul class="feature-grid" aria-label="What BeasiswaKu does">
-  <li class="card feature feature--peach">
-    <h2>Apply in one place</h2>
-    <p>Fill in your applicant data, then upload your KTP, CV, transcript, recommendation letter, parents' salary slip and a short self-introduction video. You need a username and password to see any of it.</p>
-  </li>
-  <li class="card feature feature--mint">
-    <h2>Encrypted three times</h2>
-    <p>Every field and document is stored with AES-256, DES and RC4, in CTR mode (never ECB) with an HMAC that catches tampering. You choose which copy to decrypt.</p>
-  </li>
-  <li class="card feature feature--lavender">
-    <h2>Compare the ciphers</h2>
-    <p>See how fast each cipher is on the <a href="/benchmarks">benchmarks page</a> (log in to open it).</p>
-  </li>
-</ul>
+<section aria-labelledby="scholarships-title" id="scholarships">
+  <div class="section-head">
+    <h2 id="scholarships-title">Open scholarships</h2>
+    {{if .User}}<span class="muted">Hi, {{.User.Username}}. Your status is shown on each card.</span>{{end}}
+  </div>
+  <ul class="scholarship-grid">
+    {{range .Cards}}
+    <li class="card certificate sch-card">
+      <span class="ribbon">{{.Kind}}</span>
+      <div>
+        <h3><a href="/scholarships/{{.ID}}">{{.Name}}</a></h3>
+        <p class="sch-sponsor">{{.Sponsor}}</p>
+      </div>
+      <p>{{.Summary}}</p>
+      <dl class="facts">
+        <div><dt>Award</dt><dd>{{.Amount}}</dd></div>
+        <div><dt>Deadline</dt><dd><time datetime="{{.Deadline.Format "2006-01-02T15:04:05Z07:00"}}">{{.Deadline.Format "2 January 2006"}}</time></dd></div>
+        <div><dt>Who can apply</dt><dd>{{.For}}</dd></div>
+      </dl>
+      <div class="sch-actions">
+        {{template "cardStatus" .}}
+        <a class="btn {{if eq .State "submitted" "closed"}}btn--small{{else}}btn--primary{{end}}" href="/scholarships/{{.ID}}">{{if eq .State "submitted" "closed"}}View{{else}}Apply{{end}}</a>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+</section>
+
+<section class="card" aria-labelledby="how-title">
+  <h2 id="how-title">How to apply</h2>
+  <ol class="steps">
+    <li><strong>Fill in your applicant data</strong><span>Name, NIK, date of birth, address and contact details.</span></li>
+    <li><strong>Upload six documents</strong><span>KTP, CV, transcript, recommendation letter, parents' salary slip and a short video.</span></li>
+    <li><strong>Submit</strong><span>Choose a scholarship and press Submit. One set of documents works for both.</span></li>
+  </ol>
+</section>
+
+<section class="card trust" aria-labelledby="trust-title">
+  <h2 id="trust-title">How your data is protected</h2>
+  <p>Every field, every document and even which scholarship you applied to is stored encrypted three times, with AES-256, DES and RC4, in CTR mode (never ECB) and with an HMAC that catches tampering. Only you can read it back after logging in.</p>
+  <p class="muted">The <a href="/benchmarks">benchmarks</a> page compares how fast the three ciphers are.</p>
+</section>
 {{template "footer" .}}{{end}}
+
+{{/* cardStatus shows an applications.Card's status as a badge. Nothing for
+     logged-out visitors. */}}
+{{define "cardStatus"}}
+{{- if eq .State "submitted"}}<span class="badge badge--submitted">Submitted {{.SubmittedAt.Format "2 Jan 2006"}}</span>
+{{- else if eq .State "ready"}}<span class="badge badge--ready">Ready to submit</span>
+{{- else if eq .State "incomplete"}}<span class="badge badge--incomplete">{{.Missing}} {{if eq .Missing 1}}item{{else}}items{{end}} missing</span>
+{{- else if eq .State "closed"}}<span class="badge badge--closed">Closed</span>
+{{- else}}<span class="muted">Closes {{.Deadline.Format "2 Jan 2006"}}</span>
+{{- end}}
+{{- end}}

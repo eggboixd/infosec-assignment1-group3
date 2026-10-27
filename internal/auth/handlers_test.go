@@ -119,7 +119,7 @@ func TestRegisterThenLoginThenLogout(t *testing.T) {
 		t.Error("registration message shown twice")
 	}
 
-	expectRedirect(t, f.login("BUDI", password), "/files")
+	expectRedirect(t, f.login("BUDI", password), "/")
 	c := f.cookies[auth.SessionCookieName]
 	if c == nil || !c.HttpOnly || c.SameSite != http.SameSiteStrictMode {
 		t.Fatalf("session cookie = %+v; want HttpOnly, SameSite=Strict", c)
@@ -135,8 +135,8 @@ func TestRegisterThenLoginThenLogout(t *testing.T) {
 	}
 
 	// A logged-in user visiting the auth pages goes to their files.
-	expectRedirect(t, f.do(http.MethodGet, "/login", nil), "/files")
-	expectRedirect(t, f.do(http.MethodGet, "/register", nil), "/files")
+	expectRedirect(t, f.do(http.MethodGet, "/login", nil), "/")
+	expectRedirect(t, f.do(http.MethodGet, "/register", nil), "/")
 
 	stolen := *c
 	expectRedirect(t, f.do(http.MethodPost, "/logout", nil), "/login")

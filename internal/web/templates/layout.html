@@ -18,6 +18,7 @@
   <title>{{if .Title}}{{.Title}} · {{end}}BeasiswaKu</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/nunito-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/fraunces-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/mascot.css">
   <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js"
@@ -32,8 +33,8 @@
     <a class="brand" href="/"><span class="gembi gembi--nav">{{template "mascot" "smiling"}}</span>BeasiswaKu</a>
     {{if .User}}
     <nav class="site-nav" aria-label="Main">
-      <a href="/files">Documents</a>
-      <a href="/profile">Applicant data</a>
+      <a href="/">Scholarships</a>
+      <a href="/profile">My application</a>
       <a href="/benchmarks">Benchmarks</a>
       <span class="user-chip" title="Logged in as {{.User.Username}}">{{.User.Username}}</span>
       <form method="post" action="/logout" class="inline"><button type="submit" class="btn--ghost btn--small">Log out</button></form>
@@ -52,8 +53,16 @@
 {{define "footer"}}
   </main>
   <footer class="site-footer">
-    BeasiswaKu, the scholarship application portal. Gembi keeps your application encrypted three times: AES-256, DES and RC4.
+    BeasiswaKu, the scholarship portal of the (fictional) Yayasan Cendekia Nusantara. Toga keeps your application encrypted three times: AES-256, DES and RC4.
   </footer>
 </body>
 </html>
 {{end}}
+
+{{/* appSteps links the two steps of "My application". Call with the current
+     step: {{template "appSteps" "profile"}} or "files". */}}
+{{define "appSteps"}}<ol class="app-steps" aria-label="My application">
+  <li><a href="/profile"{{if eq . "profile"}} aria-current="page"{{end}}>1. Applicant data</a></li>
+  <li><a href="/files"{{if eq . "files"}} aria-current="page"{{end}}>2. Documents</a></li>
+  <li><a href="/">3. Choose &amp; submit</a></li>
+</ol>{{end}}

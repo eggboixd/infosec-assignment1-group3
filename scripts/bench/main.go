@@ -155,7 +155,7 @@ func (c *client) signIn(user, password string) error {
 	} else if password == "" {
 		return errors.New("-user needs BENCH_PASSWORD in the environment")
 	}
-	if err := c.postForm("/login", url.Values{"username": {user}, "password": {password}}, "/files"); err != nil {
+	if err := c.postForm("/login", url.Values{"username": {user}, "password": {password}}, "/"); err != nil {
 		return fmt.Errorf("login: %w", err)
 	}
 	return nil

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/eggboixd/infosec-assignment1-group3/internal/applications"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/benchmark"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/config"
@@ -91,6 +92,12 @@ func run() error {
 		return err
 	}
 
+	// Same construction for the application blind index (D38).
+	applicationIndexKey, err := crypto.DeriveKey(cfg.MasterKey, "application-blind-index")
+	if err != nil {
+		return err
+	}
+
 	db := mongo.Database()
 	benchStore := benchmark.NewStore(db.Collection(mongodb.BenchmarksCollection))
 
@@ -98,6 +105,7 @@ func run() error {
 	sessions := auth.NewSessionManager(auth.NewSessionStore(db.Collection(mongodb.SessionsCollection)), cfg.SessionSecret, cfg.CookieSecure)
 	profileSvc := profile.NewService(profile.NewStore(db.Collection(mongodb.ProfilesCollection)), enc, nikBlindKey, benchStore)
 	filesSvc := files.NewService(files.NewStore(db.Collection(mongodb.FilesCollection)), objects, enc, benchStore)
+	applicationsSvc := applications.NewService(applications.NewStore(db.Collection(mongodb.ApplicationsCollection)), profileSvc, filesSvc, enc, applicationIndexKey)
 
 	engine, err := web.NewEngine(web.Options{
 		Mode:         cfg.GinMode,
@@ -108,6 +116,7 @@ func run() error {
 		},
 		Session: auth.LoadSession(sessions),
 		Features: []web.RouteRegistrar{
+			applications.NewHandler(applicationsSvc),
 			auth.NewHandler(authSvc, sessions),
 			profile.NewHandler(profileSvc),
 			files.NewHandler(filesSvc),

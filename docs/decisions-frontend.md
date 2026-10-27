@@ -4,6 +4,8 @@ Each entry gives the choice, the alternatives we considered, and the reason. Dec
 branches (crypto, auth, storage) are in their own documents and are not repeated here.
 
 ## 1. A mascot, Gembi, in the "Sticker" style
+> Superseded by 17: Toga the owl replaced Gembi. The partial, mood classes and hooks described here still apply.
+
 - **Choice:** a padlock character, Gembi (from *gembok*, Indonesian for "padlock"), drawn in style B "Sticker":
   ink outline, white sticker border, dot eyes.
 - **Alternatives:** style A "Mochi" (no outlines) and style C "Keyhole guard" (shield shape with cap and key). All three
@@ -111,6 +113,8 @@ Missing keys in a `gin.H` are simply falsy in `if`/`with`.
   `TestFaviconIsStaticSVG` fails if it ever gains a script, an event handler, an external reference or an animation.
 
 ## 13. "Strawberry milk" palette, every colour a token, contrast checked by a test
+> Superseded by 18: the "Ivory & navy" palette replaced these colours. The token rule and the contrast test still apply.
+
 - **Choice:** blush pink background (`#fff3f6`), white cards, plum ink (`#47283a`), a raspberry accent (`#b3325f`) and
   a true red for errors (`#a8201a`). Gembi and the favicon use matching pinks. Every colour is a variable in one
   block: `:root` in `style.css`, `.mascot` in `mascot.css`. The other rules only use `var()`.
@@ -134,6 +138,8 @@ Missing keys in a `gin.H` are simply falsy in `if`/`with`.
     can't load `mascot.css`, so it repeats the colours and could otherwise drift.
 
 ## 14. A public landing page at "/", logged-in users go to /files
+> Superseded by 19: `/` is now the scholarship home for everyone, served by `internal/applications`.
+
 - **Choice:** `GET /` moved from the protected group to the public one (`showHome` in `internal/web/home.go`). A visitor
   sees `home.html`: Gembi waving, the app name, a one-line pitch, "Log in" and "Register" buttons, and three cards (what
   is stored, the three ciphers with CTR + HMAC, the benchmarks page). If a user is already on the context it redirects to
@@ -175,4 +181,42 @@ Missing keys in a `gin.H` are simply falsy in `if`/`with`.
   back to Missing and shows its upload form again. The CSP is unchanged: no inline script or style was added.
 - **Trade-off:** the accepted extensions per slot (for example DOC/DOCX for the recommendation letter, a PDF is not
   accepted) follow the report's scenario and live in one table in `internal/files/file.go`.
+
+## 17. Toga, an owl in a graduation cap, replaces Gembi
+- **Choice:** the mascot is **Toga**, an owl wearing a mortarboard whose tassel ends in a small key. It is redrawn in
+  `templates/mascot.html` with the same contract as Gembi: one `{{template "mascot" "<mood>"}}` call, one
+  `mascot--<mood>` class, `aria-hidden`, colours only as `.mascot` variables. All ten moods keep their names, so
+  `mascot.js` and every page work unchanged: the wings cover the eyes for passwords, the key tassel swings on
+  `unlocked`, Toga seals an envelope while `busy`, waves a wing on `hello` and dozes on `sleepy`. The favicon is
+  Toga's face. The `data-gembi*` hooks and `.gembi` size classes keep their names to keep the diff small.
+- **Alternatives:** keep Gembi (a padlock fits a "secure store", not a scholarship office); no mascot (the moods tell
+  the user what is happening, for example the locked Submit button with a sleepy Toga).
+- **Why:** an owl reads as study and scholarship at a glance, and the key on the tassel ties it back to the
+  encryption. Keeping the mood names means the change is a drawing and a stylesheet, not new behaviour.
+
+## 18. "Ivory & navy": the look of a scholarship office
+- **Choice:** ivory paper with faint ruled lines, navy ink and header, gold for seals, rules and ribbons. Headings use
+  **Fraunces** (variable, OFL, self-hosted beside Nunito with its licence in `static/fonts/OFL-Fraunces.txt`); body text
+  stays Nunito. Scholarship cards and the hero have a double "certificate" border and a corner ribbon naming the kind;
+  "Submitted" is a round gold seal badge. `--pink`, `--peach` and `--lavender` became `--gold-soft`, `--sand` and
+  `--sky`, and `--gold`/`--gold-ink` were added; `TestThemeContrast` lists every pair where they are drawn.
+- **Alternatives:** keep "Strawberry milk" and only change the words (still looks like a toy, not a place to send an
+  ID card); a dark theme (official forms are light); a system serif only (looks unfinished on Windows and Android).
+- **Why:** the brief asks for an application that clearly makes sense in its setting. Gold text on ivory fails WCAG,
+  so gold is decoration only and gold-toned text uses the darker `--gold-ink` (checked by the test).
+
+## 19. "/" is the scholarship home for everyone; login lands there
+- **Choice:** `GET /` is served by `internal/applications` (the old `web.showHome` and its redirect to `/files` are
+  gone): a hero, the two scholarship cards, "How to apply" in three steps and how the data is protected. Logged in,
+  each card shows the student's status (missing items, ready, submitted with its date, closed). Each scholarship has a
+  detail page, `/scholarships/:id`, with the requirements and the Submit button, which is disabled until nothing is
+  missing. Login and the logged-in redirects of `/login` and `/register` now go to `/`. The nav is
+  Scholarships · My application · Benchmarks; `/profile` and `/files` show "1. Applicant data · 2. Documents ·
+  3. Choose & submit" links.
+- **Alternatives:** keep landing on `/files` (a student who clicked Apply on a card would lose it after logging in);
+  return to the page the user came from after login (needs a `next` parameter, which must be restricted to local paths
+  or the login page becomes an open redirect).
+- **Why:** the grid with statuses is the natural hub of an application portal, and landing there needs no redirect
+  parameter to secure. The page data is built in Go (`applications.BuildCards`), so the templates hold no logic and the
+  template tests render the real function's output.
 

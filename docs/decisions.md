@@ -651,3 +651,46 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
 - **Private-data crypto time is measured differently** from file crypto time (D22): it includes key generation and
   wrapping. Compare files with files and fields with fields.
 - **Timings come from one machine and one run.** Report the mean ± standard deviation, the run count, and the hardware.
+
+---
+
+## Scholarship applications (`feature/scholarship-portal`)
+
+### D38. An application stores which scholarship, encrypted with every algorithm, unique through a blind index
+
+- **Decision:** `internal/applications` holds a fixed catalogue of two fictional scholarships and one `applications`
+  document per student and scholarship: `user_id`, `scholarship` (the scholarship ID, a `SealedSet` from
+  `EncryptField` with AES, DES and RC4), `index` and `submitted_at`. `index` is HMAC-SHA256 over the user ID and the
+  scholarship ID, keyed with `DeriveKey(MASTER_KEY, "application-blind-index")`; a unique index on it allows one
+  application per student and scholarship. Submitting is refused on the server unless the scholarship is open, the
+  student has no application to it yet, a profile exists and all six document slots are filled. Reading an
+  application decrypts the AES copy and recomputes the index from the decrypted ID; a mismatch is reported as an
+  integrity error. Login now lands on `/`, which shows each scholarship with the student's status.
+- **Alternatives:** store the scholarship ID in plaintext (simplest, and enough for a unique index); a computed
+  "ready" status with no stored record; scholarships in a database collection.
+- **Why:**
+  - **The choice is private data.** Applying to the need-based scholarship says the family has a low income, which is
+    personal financial information (UU PDP Pasal 4(2)). The brief requires everything private to be protected with all
+    three ciphers, so it is sealed like the profile fields.
+  - **A blind index, as for the NIK (D19).** The ciphertext changes on every encryption, so MongoDB cannot enforce
+    uniqueness on it. An unkeyed hash of two possible IDs could be reversed by trying both; with the HMAC key it
+    cannot. The user ID is part of the input, so two students who apply to the same scholarship have unrelated
+    indexes, and the index does not reveal which students chose the same scholarship.
+  - **Binding the record to its owner.** The field HMAC proves a ciphertext is genuine, not that it belongs to this
+    record: someone with database access could copy another valid ciphertext in. Recomputing the index from the
+    decrypted ID catches that (`TestSubmittedFailsClosedOnTampering`).
+  - **Checks on the server.** A disabled button is only a hint; `Submit` checks readiness itself
+    (`TestApplyNotReady`).
+  - **No benchmark records** from this feature: the value is a few bytes, and the home page reads it on every view,
+    which would flood the private-data measurements (like `files.List`, which records none either).
+- **Trade-offs:** the number of applications per student is visible in the database (one document each), though not
+  which scholarships. Readiness checks the profile and documents exist, not their content. The catalogue lives in
+  code, so changing a scholarship is a code change.
+
+---
+
+## Known limitations (scholarship applications)
+
+- **No reviewer side.** There is no admin, review or acceptance workflow, and a student cannot withdraw an application.
+- **Documents are shared, not frozen.** Both scholarships use the same documents, and a student can still replace them
+  after submitting; the application records only which scholarship and when.

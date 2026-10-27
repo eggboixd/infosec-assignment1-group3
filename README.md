@@ -1,15 +1,16 @@
-# Information Security - Group 3: Secure Store
+# Information Security - Group 3: BeasiswaKu
 
-A web application where users log in with a username and password, store private data and files encrypted, and retrieve them decrypted. Every item is encrypted three times, once each with **AES-256**, **DES**, and **RC4**. The team can then compare running time and ciphertext across the ciphers in the final report.
+**BeasiswaKu** is a university scholarship application portal of a fictional foundation, Yayasan Cendekia Nusantara. Students register, fill in their applicant data, upload the documents a scholarship committee asks for (a KTP scan, CV, transcript, recommendation letter, their parents' salary slip and a self-introduction video) and submit an application to one or both open scholarships. These are exactly the kinds of personal data that UU PDP and GDPR protect, so everything private is stored encrypted three times, once each with **AES-256**, **DES**, and **RC4**, and only the logged-in student can read it back. The team compares running time and ciphertext across the ciphers in the final report.
 
 Stored data:
 
-1. Private personal data as defined by GDPR and Indonesia's UU PDP (name, NIK, date of birth, address, phone, email), stored in MongoDB
+1. Applicant data, personal data as defined by GDPR and Indonesia's UU PDP (name, NIK, date of birth, address, phone, email), stored in MongoDB
 2. ID card images (JPEG, PNG)
 3. Documents (PDF, DOC, DOCX, XLS, XLSX)
 4. Videos (MP4, WebM)
+5. Applications: which scholarship a student applied to, and when
 
-> **Status:** cryptography, the frontend, private data, authentication (accounts, sessions, CSRF protection), encrypted file storage (streaming upload, download and delete) and benchmarks (summary page, CSV export, and the `scripts/bench` runner) are implemented. Every HTTP route and its test cases are listed in [docs/api.md](docs/api.md). Measured running times are in [docs/benchmark/](docs/benchmark/README.md). See [Team branches](#team-branches).
+> **Status:** cryptography, the frontend, private data, authentication (accounts, sessions, CSRF protection), encrypted file storage (streaming upload, download and delete) and benchmarks (summary page, CSV export, and the `scripts/bench` runner) and scholarship applications (home page, detail pages, encrypted submit) are implemented. Every HTTP route and its test cases are listed in [docs/api.md](docs/api.md). Measured running times are in [docs/benchmark/](docs/benchmark/README.md). See [Team branches](#team-branches).
 
 ## Architecture
 
@@ -43,6 +44,7 @@ internal/auth/         users, login, sessions, RequireAuth middleware
 internal/profile/      encrypted private personal data
 internal/files/        encrypted file upload and download
 internal/benchmark/    timing records, /benchmarks view, CSV export
+internal/applications/ scholarship catalogue, home page, encrypted applications
 internal/platform/     MongoDB and MinIO clients
 internal/web/          Gin engine, templates, static files, /healthz
 deploy/minio/          MinIO image built from source

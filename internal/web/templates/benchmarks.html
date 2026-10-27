@@ -1,7 +1,7 @@
 {{define "benchmarks.html"}}{{template "header" .}}
 {{/* Data: .Summary ([]benchmark.Stat), .Total (benchmark.Stat with Count and
      Bytes), .Records ([]benchmark.Record, newest first, at most 100) and
-     .Since (the raw ?since= value). Gembi is smiling when there are
+     .Since (the raw ?since= value). Toga is smiling when there are
      measurements and sleepy when there are none. */}}
 <section class="card">
   <div class="page-head">
@@ -67,7 +67,7 @@
   {{else}}
   <div class="empty-state">
     <strong>No measurements yet.</strong>
-    <span>Upload or download a file and Gembi will time how long each cipher takes.</span>
+    <span>Upload or download a file and Toga will time how long each cipher takes.</span>
   </div>
   {{end}}
 </section>
