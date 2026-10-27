@@ -1,0 +1,84 @@
+{{define "scholarship.html"}}{{template "header" .}}
+{{/* Data (built in the applications handler):
+       .Card       an applications.Card (see home.html) for this scholarship
+       .Readiness  applications.Readiness for the logged-in student:
+                   .HasProfile, .Uploaded, .Total, .Missing (labels of the
+                   missing documents), .Ready, .MissingCount. Zero when
+                   logged out.
+       .User       the logged-in user, or nil.
+       .Error      a message after a refused submit, else "".
+     Toga is smiling when the application is submitted or ready, sleepy while
+     something is missing, confused after a refused submit and busy while the
+     submit is sent (the server encrypts the choice three times). */}}
+{{- with .Card}}
+<section class="card certificate detail-head" aria-labelledby="sch-title">
+  <span class="ribbon">{{.Kind}}</span>
+  <p class="kicker">{{.Sponsor}}</p>
+  <h1 id="sch-title">{{.Name}}</h1>
+  <p>{{.Summary}}</p>
+  <dl class="facts">
+    <div><dt>Award</dt><dd>{{.Amount}}</dd></div>
+    <div><dt>Deadline</dt><dd><time datetime="{{.Deadline.Format "2006-01-02T15:04:05Z07:00"}}">{{.Deadline.Format "2 January 2006, 15:04 MST"}}</time></dd></div>
+    <div><dt>Who can apply</dt><dd>{{.For}}</dd></div>
+    <div><dt>Status</dt><dd>{{template "cardStatus" .}}</dd></div>
+  </dl>
+</section>
+{{- end}}
+
+<section class="card" aria-labelledby="req-title">
+  <h2 id="req-title">What you need</h2>
+  <p class="muted">Both scholarships ask for the same applicant data and six documents, so you only prepare them once.</p>
+  <ul class="requirements">
+    <li{{if .Readiness.HasProfile}} class="is-done"{{end}}>
+      <a href="/profile">Applicant data</a>
+      {{if .User}}{{if .Readiness.HasProfile}}<span class="status status--done">Saved</span>{{else}}<span class="status status--missing">Missing</span>{{end}}{{end}}
+    </li>
+    {{if .User}}
+    <li{{if eq .Readiness.Uploaded .Readiness.Total}} class="is-done"{{end}}>
+      <a href="/files">Documents</a>
+      <span class="status {{if eq .Readiness.Uploaded .Readiness.Total}}status--done{{else}}status--missing{{end}}">{{.Readiness.Uploaded}} of {{.Readiness.Total}} uploaded</span>
+    </li>
+    {{else}}
+    <li><a href="/files">Documents</a><span class="muted">KTP, CV, transcript, recommendation letter, salary slip, video</span></li>
+    {{end}}
+  </ul>
+  {{with .Readiness.Missing}}
+  <p class="hint">Still missing: {{range $i, $m := .}}{{if $i}}, {{end}}{{$m}}{{end}}.</p>
+  {{end}}
+</section>
+
+<section class="card apply-box" aria-labelledby="apply-title">
+  <div class="page-head">
+    <div class="gembi" data-gembi data-base-mood="{{if eq .Card.State "submitted" "ready"}}smiling{{else}}sleepy{{end}}">
+      {{- if .Error}}{{template "mascot" "confused"}}{{else if eq .Card.State "submitted" "ready"}}{{template "mascot" "smiling"}}{{else}}{{template "mascot" "sleepy"}}{{end -}}
+    </div>
+    <div>
+      <h2 id="apply-title">Submit your application</h2>
+      {{- if eq .Card.State "submitted"}}
+      <p>Your application was received on <time datetime="{{.Card.SubmittedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.Card.SubmittedAt.Format "2 January 2006 at 15:04 UTC"}}</time>. Good luck!</p>
+      {{- else if eq .Card.State "closed"}}
+      <p>The deadline has passed, so this scholarship no longer accepts applications.</p>
+      {{- else if eq .Card.State "ready"}}
+      <p>Everything is in place. Submitting records which scholarship you applied to, encrypted with AES-256, DES and RC4.</p>
+      {{- else if eq .Card.State "incomplete"}}
+      <p>Complete your applicant data and documents first. The Submit button unlocks when nothing is missing.</p>
+      {{- else}}
+      <p>Log in or create an account to apply.</p>
+      {{- end}}
+    </div>
+  </div>
+  {{with .Error}}
+  <div class="form-errors" role="alert"><p>{{.}}</p></div>
+  {{end}}
+  {{- if eq .Card.State "ready"}}
+  <form method="post" action="/scholarships/{{.Card.ID}}/apply" data-gembi-busy="Submitting…">
+    <button type="submit" class="btn--primary btn--large">Submit application</button>
+  </form>
+  {{- else if eq .Card.State "incomplete"}}
+  <button type="button" class="btn--primary btn--large btn--locked" disabled>Submit application</button>
+  {{- else if eq .Card.State ""}}
+  <div class="hero-actions"><a class="btn btn--primary" href="/login">Log in to apply</a><a class="btn" href="/register">Create an account</a></div>
+  {{- end}}
+  <p><a href="/">← All scholarships</a></p>
+</section>
+{{template "footer" .}}{{end}}

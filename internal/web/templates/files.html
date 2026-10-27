@@ -9,12 +9,13 @@
        .Others        files with no slot (uploaded before slots existed); same
                       fields as .File plus .Kind.
        .Uploaded      number of filled slots; .Total the number of slots.
-       .JustLoggedIn  true on the first render after login: Gembi unlocks once.
-     Gembi is smiling when something is uploaded and sleepy when nothing is; it
+       .JustLoggedIn  true on the first render after login: Toga unlocks once.
+     Toga is smiling when something is uploaded and sleepy when nothing is; it
      is busy while an upload is sent and happy when a download starts
      (mascot.js). The "slot" field must come before "file" so the server can
      validate it before streaming the upload. */}}
 <section class="card">
+  {{template "appSteps" "files"}}
   <div class="page-head">
     <div class="gembi" data-gembi data-base-mood="{{if .Uploaded}}smiling{{else}}sleepy{{end}}">
       {{- if .JustLoggedIn}}{{template "mascot" "unlocked"}}{{else if .Uploaded}}{{template "mascot" "smiling"}}{{else}}{{template "mascot" "sleepy"}}{{end -}}

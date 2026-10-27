@@ -10,6 +10,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 
+	"github.com/eggboixd/infosec-assignment1-group3/internal/applications"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/benchmark"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/crypto"
@@ -44,7 +45,7 @@ type pageCase struct {
 	name    string
 	page    string
 	data    map[string]any
-	mood    string         // starting mood of the page's main Gembi (data-gembi)
+	mood    string         // starting mood of the page's main mascot (data-gembi)
 	want    []string       // substrings that must appear
 	notWant []string       // substrings that must not appear
 	count   map[string]int // substring -> exact number of occurrences
@@ -88,7 +89,7 @@ func runPageCases(t *testing.T, cases []pageCase) {
 			out := renderPage(t, tt.page, tt.data)
 			if tt.mood != "" {
 				if got := stageMood(t, out); got != tt.mood {
-					t.Errorf("Gembi's mood = %q, want %q", got, tt.mood)
+					t.Errorf("mascot mood = %q, want %q", got, tt.mood)
 				}
 			}
 			for _, s := range tt.want {
@@ -110,26 +111,112 @@ func runPageCases(t *testing.T, cases []pageCase) {
 	}
 }
 
+// homeData builds what home.html reads with the function the handler uses.
+func homeData(user *auth.User, r applications.Readiness, sub map[string]time.Time) map[string]any {
+	return map[string]any{"User": user, "Cards": applications.BuildCards(user != nil, r, sub, beforeDeadline)}
+}
+
+// detailData builds what scholarship.html reads for the first scholarship.
+func detailData(user *auth.User, r applications.Readiness, sub map[string]time.Time, now time.Time, errMsg string) map[string]any {
+	card := applications.BuildCards(user != nil, r, sub, now)[0]
+	return map[string]any{"User": user, "Card": card, "Readiness": r, "Error": errMsg}
+}
+
+var (
+	beforeDeadline = time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
+	afterDeadline  = time.Date(2027, 3, 1, 0, 0, 0, 0, time.UTC)
+	student        = &auth.User{Username: "alice"}
+	readyStudent   = applications.Readiness{HasProfile: true, Uploaded: 6, Total: 6}
+	halfwayStudent = applications.Readiness{Uploaded: 4, Total: 6, Missing: []string{"Parents' salary slip", "Self-introduction video"}}
+	submittedFirst = map[string]time.Time{"prestasi-nusantara": time.Date(2026, 10, 20, 8, 0, 0, 0, time.UTC)}
+)
+
 func TestHomeTemplate(t *testing.T) {
 	runPageCases(t, []pageCase{
 		{
-			name: "landing page: waves once, then smiles; calls to action and three cards",
+			name: "visitor: Toga waves, two scholarship cards, register and log in",
 			page: "home.html",
-			data: map[string]any{},
+			data: homeData(nil, applications.Readiness{}, nil),
 			mood: "hello",
 			want: []string{
-				`data-base-mood="smiling"`, "<h1 id=\"home-title\">BeasiswaKu</h1>",
+				`data-base-mood="smiling"`, "Pendaftaran Beasiswa 2027 dibuka",
+				"Beasiswa Prestasi Nusantara", "Beasiswa Bakti Keluarga", "Yayasan Cendekia Nusantara",
+				`href="/scholarships/prestasi-nusantara"`, `href="/scholarships/bakti-keluarga"`,
 				`href="/login"`, `href="/register"`, `href="/benchmarks"`,
-				"AES-256", "DES", "RC4", "CTR", "HMAC", "scholarship", "KTP",
+				"31 January 2027", "AES-256", "DES", "RC4", "CTR", "HMAC",
 			},
-			notWant: []string{"site-nav"},
-			count:   map[string]int{`class="card feature `: 3},
+			notWant: []string{"site-nav", "badge--", "Secure Store", "Gembi"},
+			count:   map[string]int{`class="card certificate sch-card"`: 2, `class="ribbon"`: 2},
 		},
 		{
-			name: "with a user the nav shows",
+			name:    "student: nav and a status badge on every card",
+			page:    "home.html",
+			data:    homeData(student, halfwayStudent, submittedFirst),
+			want:    []string{"site-nav", "alice", `href="/profile">My application`, "badge--submitted", "Submitted 20 Oct 2026", "3 items missing"},
+			notWant: []string{`href="/register"`},
+		},
+		{
+			name: "student ready to submit",
 			page: "home.html",
-			data: map[string]any{"User": &auth.User{Username: "alice"}},
-			want: []string{"site-nav", "alice"},
+			data: homeData(student, readyStudent, nil),
+			want: []string{"Ready to submit"},
+		},
+		{
+			name: "first page after login: Toga unlocks",
+			page: "home.html",
+			data: withData(homeData(student, readyStudent, nil), map[string]any{"JustLoggedIn": true}),
+			mood: "unlocked",
+		},
+	})
+}
+
+func TestScholarshipTemplate(t *testing.T) {
+	const form = `action="/scholarships/prestasi-nusantara/apply"`
+	runPageCases(t, []pageCase{
+		{
+			name:    "visitor: details, log in to apply, no submit form",
+			page:    "scholarship.html",
+			data:    detailData(nil, applications.Readiness{}, nil, beforeDeadline, ""),
+			mood:    "sleepy",
+			want:    []string{"Beasiswa Prestasi Nusantara", "Rp 6.000.000 per semester", "31 January 2027, 23:59 WIB", "Log in to apply"},
+			notWant: []string{form, "uploaded</span>"},
+		},
+		{
+			name:    "incomplete: locked button and the missing documents",
+			page:    "scholarship.html",
+			data:    detailData(student, halfwayStudent, nil, beforeDeadline, ""),
+			mood:    "sleepy",
+			want:    []string{"btn--locked\" disabled", "4 of 6 uploaded", "Still missing: Parents&#39; salary slip, Self-introduction video.", "3 items missing"},
+			notWant: []string{form},
+		},
+		{
+			name: "ready: the submit form, sent busy",
+			page: "scholarship.html",
+			data: detailData(student, readyStudent, nil, beforeDeadline, ""),
+			mood: "smiling",
+			want: []string{form, `method="post"`, `data-gembi-busy=`, "Submit application", "6 of 6 uploaded"},
+		},
+		{
+			name:    "submitted: the seal and the date, no form",
+			page:    "scholarship.html",
+			data:    detailData(student, readyStudent, submittedFirst, beforeDeadline, ""),
+			mood:    "smiling",
+			want:    []string{"badge--submitted", "20 October 2026 at 08:00 UTC"},
+			notWant: []string{form, "btn--locked"},
+		},
+		{
+			name:    "closed: no form",
+			page:    "scholarship.html",
+			data:    detailData(student, readyStudent, nil, afterDeadline, ""),
+			want:    []string{"badge--closed", "deadline has passed"},
+			notWant: []string{form},
+		},
+		{
+			name: "refused submit: the message, Toga is confused",
+			page: "scholarship.html",
+			data: detailData(student, readyStudent, submittedFirst, beforeDeadline, "You have already applied to this scholarship."),
+			mood: "confused",
+			want: []string{`role="alert"`, "You have already applied to this scholarship."},
 		},
 	})
 }
@@ -235,10 +322,10 @@ func TestFilesTemplate(t *testing.T) {
 			},
 		},
 		{
-			name: "legacy and duplicate files show under Other files",
-			page: "files.html",
-			data: checklist(append([]files.FileView{legacy}, files.FileView{ID: bson.ObjectID{0x65, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2d}, Name: "cv-old.pdf", Kind: files.KindDocument, Slot: files.SlotCV, Size: 5}, testFiles[1])...),
-			want: []string{"Other files", "old-scan.pdf", "cv-old.pdf", "Document"},
+			name:  "legacy and duplicate files show under Other files",
+			page:  "files.html",
+			data:  checklist(append([]files.FileView{legacy}, files.FileView{ID: bson.ObjectID{0x65, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2d}, Name: "cv-old.pdf", Kind: files.KindDocument, Slot: files.SlotCV, Size: 5}, testFiles[1])...),
+			want:  []string{"Other files", "old-scan.pdf", "cv-old.pdf", "Document"},
 			count: map[string]int{"<tr>": 3, "status--done\">Uploaded": 1},
 		},
 		{

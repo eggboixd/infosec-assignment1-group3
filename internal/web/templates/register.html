@@ -1,6 +1,6 @@
 {{define "register.html"}}{{template "header" .}}
 {{/* Data: .Errors (optional; a slice or map of messages), .Username (optional,
-     refills the field). Same Gembi behaviour as login.html; both password
+     refills the field). Same Toga behaviour as login.html; both password
      fields make it cover its eyes. */}}
 <div class="auth-wrap">
   <section class="card auth-card" aria-labelledby="register-title">
@@ -8,7 +8,7 @@
       {{- if .Errors}}{{template "mascot" "angry"}}{{else}}{{template "mascot" "suspicious"}}{{end -}}
     </div>
     <h1 id="register-title">Create an account</h1>
-    <p class="muted">Pick a username and a long password. Gembi won't peek.</p>
+    <p class="muted">One account for every BeasiswaKu scholarship. Pick a long password; Toga won't peek.</p>
     {{with .Errors}}
     <div class="form-errors" role="alert">
       <ul>{{range .}}<li>{{.}}</li>{{end}}</ul>

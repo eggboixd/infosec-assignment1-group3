@@ -1,10 +1,12 @@
-/* Secure Store theme "Strawberry milk": blush pink, rounded cards, Nunito.
+/* BeasiswaKu theme "Ivory & navy": the look of a scholarship office -
+ * ivory paper, navy ink, gold seals, certificate-style borders
+ * (docs/decisions-frontend.md 18). Fraunces for headings, Nunito for text.
  * Everything is in this file (and mascot.css) because the CSP forbids
  * inline styles. Mobile first; wider layouts are added with min-width queries.
  */
 
-/* Nunito variable font (weights 200-1000), self-hosted: the CSP only allows
-   same-origin fonts. Licence: /static/fonts/OFL.txt. */
+/* Both fonts are variable and self-hosted: the CSP only allows same-origin
+   fonts. Licences: /static/fonts/OFL.txt (Nunito) and OFL-Fraunces.txt. */
 @font-face {
   font-family: "Nunito";
   font-style: normal;
@@ -12,40 +14,50 @@
   font-display: swap;
   src: url("/static/fonts/nunito-latin-wght-normal.woff2") format("woff2");
 }
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/static/fonts/fraunces-latin-wght-normal.woff2") format("woff2");
+}
 
 /* Every colour in this file is a token here; the rules below only use var().
    TestStylesheetColoursOnlyInTokens enforces that, so a new palette (or a
    dark mode later) is just a new copy of this block.
    Contrast: TestThemeContrast checks every text colour against the
    backgrounds it is drawn on (>= 4.5:1, WCAG 1.4.3) and the form-field
-   border against its surroundings (>= 3:1, WCAG 1.4.11). Design notes and
-   the other candidate palettes: docs/design/palette-preview/. */
+   border against its surroundings (>= 3:1, WCAG 1.4.11). */
 :root {
-  --page: #fff3f6;
-  --card: #ffffff;
+  --page: #f6f1e5;        /* ivory paper */
+  --card: #fffdf7;
   --field: #ffffff;
-  --btn: #ffffff;
-  --ink: #47283a;
-  --ink-soft: #714d5d;
-  --line: #f5dce5;        /* dividers and button outlines: decoration only */
-  --field-line: #a87a8d;  /* input, select and textarea borders */
-  --mint: #d9f2e5;
-  --lavender: #e8dfff;
-  --peach: #ffdcc9;
-  --butter: #fff0c4;
-  --pink: #ffd5e4;
-  --accent: #b3325f;      /* raspberry */
-  --accent-hover: #962a50;
-  --on-accent: #ffffff;
-  --accent-soft: #ffe6ef;
-  --danger: #a8201a;      /* a true red, so errors don't blend into the pink accent */
-  --danger-soft: #fde2df;
-  --success: #1d6a4a;
-  --success-soft: #dcf3e6;
-  --radius: 20px;
-  --radius-sm: 12px;
-  --shadow: 0 6px 20px rgba(71, 40, 58, 0.08);
+  --btn: #fffdf7;
+  --ink: #1b2a4a;         /* navy ink */
+  --ink-soft: #4b5672;
+  --line: #e4d9c0;        /* dividers and card borders: decoration only */
+  --line-strong: #c9b78f; /* the certificate double border */
+  --field-line: #857a62;  /* input, select and textarea borders */
+  --mint: #dcefe2;        /* filled checklist slot, document badge */
+  --sky: #e2e9f5;         /* video badge */
+  --sand: #f2e2c9;        /* ID card badge */
+  --butter: #f8ebc0;      /* missing, username chip, error code */
+  --accent: #1f3a6b;      /* navy: header, primary buttons, links */
+  --accent-hover: #142a52;
+  --on-accent: #fffdf7;
+  --accent-soft: #e6ebf4;
+  --gold: #c4952e;        /* seals, rules and ribbons: decoration only */
+  --gold-ink: #7a5714;    /* gold-toned text, readable on ivory */
+  --gold-soft: #f5e8c6;
+  --danger: #a3241c;
+  --danger-soft: #fbe3df;
+  --success: #1c6545;
+  --success-soft: #dcf0e3;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(27, 42, 74, 0.06), 0 8px 24px rgba(27, 42, 74, 0.07);
   --font: "Nunito", ui-rounded, "Segoe UI", system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -61,23 +73,33 @@ body {
   font-size: 1rem;
   line-height: 1.55;
   color: var(--ink);
-  background: var(--page);
+  background-color: var(--page);
+  /* Faint ruled paper. */
+  background-image: repeating-linear-gradient(0deg, transparent 0 31px, var(--line) 31px 32px);
+  background-attachment: fixed;
 }
 
-h1, h2, h3 { line-height: 1.2; margin: 0 0 0.5rem; font-weight: 800; }
-h1 { font-size: clamp(1.6rem, 5vw, 2.1rem); }
-h2 { font-size: 1.25rem; }
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+h1 { font-size: clamp(1.7rem, 5vw, 2.3rem); }
+h2 { font-size: 1.35rem; }
+h3 { font-size: 1.1rem; }
 p { margin: 0 0 0.75rem; }
 p:last-child { margin-bottom: 0; }
 
-a { color: var(--accent); text-underline-offset: 0.15em; }
+a { color: var(--accent); text-underline-offset: 0.18em; }
 a:hover { text-decoration-thickness: 2px; }
 
 code {
   font-size: 0.9em;
   background: var(--accent-soft);
   padding: 0.05rem 0.35rem;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
@@ -112,42 +134,48 @@ code {
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem 1rem;
-  padding: 0.6rem 16px;
-  background: var(--card);
-  border-bottom: 2px solid var(--line);
+  padding: 0.55rem 16px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-bottom: 4px solid var(--gold);
 }
+.site-header :focus-visible { outline-color: var(--gold); }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 1.15rem;
-  font-weight: 800;
+  gap: 0.55rem;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 600;
   color: inherit;
   text-decoration: none;
 }
+.brand .gembi { padding: 2px; border-radius: 50%; background: var(--card); }
 
 .site-nav {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.15rem;
 }
 .site-nav a {
-  padding: 0.3rem 0.8rem;
-  border-radius: 999px;
-  color: var(--ink);
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--on-accent);
   font-weight: 700;
   text-decoration: none;
 }
-.site-nav a:hover { background: var(--accent-soft); }
-.site-nav a[aria-current="page"] { background: var(--pink); }
+.site-nav a:hover { background: var(--accent-hover); }
+.site-nav .btn--ghost { color: var(--on-accent); border-color: transparent; }
+.site-nav .btn--ghost:hover { border-color: var(--gold); }
 .user-chip {
   margin-left: 0.25rem;
-  padding: 0.2rem 0.7rem;
+  padding: 0.15rem 0.65rem;
   border-radius: 999px;
-  background: var(--butter);
-  font-size: 0.9rem;
+  background: var(--gold-soft);
+  color: var(--ink);
+  font-size: 0.88rem;
   font-weight: 700;
   max-width: 12rem;
   overflow: hidden;
@@ -160,9 +188,9 @@ code {
 main {
   flex: 1;
   width: 100%;
-  max-width: 64rem;
+  max-width: 66rem;
   margin: 0 auto;
-  padding: 1.25rem 16px 2rem;
+  padding: 1.5rem 16px 2.5rem;
   display: grid;
   gap: 1.25rem;
   align-content: start;
@@ -170,6 +198,7 @@ main {
 
 .card {
   background: var(--card);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 1.25rem;
@@ -195,11 +224,23 @@ main {
 .page-head h1 { margin-bottom: 0.25rem; }
 .page-head p { color: var(--ink-soft); }
 
+/* Small caps label above a title, like the letterhead of an official form. */
+.kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-ink);
+}
+
 .site-footer {
-  padding: 1rem 16px 1.5rem;
+  padding: 1.25rem 16px 1.75rem;
   text-align: center;
   font-size: 0.85rem;
   color: var(--ink-soft);
+  border-top: 1px solid var(--line);
+  background: var(--page);
 }
 
 /* ---------- Forms ---------- */
@@ -235,8 +276,8 @@ button {
   justify-content: center;
   gap: 0.4rem;
   padding: 0.55rem 1.2rem;
-  border: 2px solid var(--line);
-  border-radius: 999px;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius-sm);
   background: var(--btn);
   color: var(--ink);
   cursor: pointer;
@@ -249,7 +290,10 @@ button {
 .btn--danger { color: var(--danger); }
 .btn--danger:hover { border-color: var(--danger); background: var(--danger-soft); }
 .btn--small { padding: 0.25rem 0.75rem; font-size: 0.88rem; }
+.btn--large { padding: 0.75rem 1.6rem; font-size: 1.05rem; }
 button:disabled { opacity: 0.7; cursor: progress; }
+/* Submit stays visible but inert until the application is complete. */
+button:disabled.btn--locked { cursor: not-allowed; opacity: 0.55; }
 
 .inline-form {
   display: flex;
@@ -270,11 +314,12 @@ button:disabled { opacity: 0.7; cursor: progress; }
   gap: 0.75rem;
   padding: 0.8rem 1rem;
   border-radius: var(--radius-sm);
+  border-left: 4px solid var(--accent);
   background: var(--accent-soft);
   font-weight: 700;
 }
-.flash--success { background: var(--success-soft); color: var(--success); }
-.flash--error { background: var(--danger-soft); color: var(--danger); }
+.flash--success { background: var(--success-soft); color: var(--success); border-left-color: var(--success); }
+.flash--error { background: var(--danger-soft); color: var(--danger); border-left-color: var(--danger); }
 .flash-close {
   padding: 0 0.5rem;
   border: 0;
@@ -287,6 +332,7 @@ button:disabled { opacity: 0.7; cursor: progress; }
 .form-errors {
   padding: 0.75rem 1rem;
   border-radius: var(--radius-sm);
+  border-left: 4px solid var(--danger);
   background: var(--danger-soft);
   color: var(--danger);
   font-weight: 700;
@@ -300,7 +346,7 @@ button:disabled { opacity: 0.7; cursor: progress; }
   max-width: 26rem;
   margin: 0 auto;
 }
-.auth-card { text-align: center; padding-top: 1.5rem; }
+.auth-card { text-align: center; padding-top: 1.5rem; border-top: 4px solid var(--gold); }
 .auth-card .gembi { margin: 0 auto 0.75rem; }
 .auth-card .stack,
 .auth-card .form-errors { text-align: left; }
@@ -308,26 +354,180 @@ button:disabled { opacity: 0.7; cursor: progress; }
 .auth-card .btn--primary { width: 100%; margin-top: 0.25rem; }
 .auth-switch { margin-top: 1rem; text-align: center; }
 
-/* ---------- Home (landing page) ---------- */
+/* ---------- Certificate frame (hero, scholarship cards, detail) ---------- */
 
-.hero { text-align: center; padding: 2rem 1.25rem; }
-.hero .gembi { margin: 0 auto 1rem; }
-.hero-pitch { max-width: 34rem; margin: 0 auto 1.25rem; color: var(--ink-soft); font-size: 1.1rem; }
-.hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
-.hero-actions .btn { min-height: 2.75rem; min-width: 8rem; }
+.certificate {
+  position: relative;
+  border: 3px double var(--line-strong);
+  outline: 1px solid var(--line);
+  outline-offset: -9px;
+}
 
-.feature-grid {
+/* ---------- Home ---------- */
+
+.hero {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  text-align: center;
+  padding: 2rem 1.25rem;
+}
+.hero h1 { font-size: clamp(2rem, 7vw, 3.1rem); margin-bottom: 0.35rem; }
+.hero-sub { font-family: var(--font-display); font-style: italic; font-size: 1.15rem; color: var(--ink-soft); }
+.hero-pitch { max-width: 36rem; margin: 0 auto; color: var(--ink-soft); font-size: 1.05rem; }
+.hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-top: 0.5rem; }
+.hero-actions .btn { min-height: 2.75rem; min-width: 9rem; }
+.hero-rule { width: 6rem; height: 3px; margin: 0.25rem auto; border: 0; background: var(--gold); }
+/* Phones: Toga greets above the title, at a smaller size. */
+.hero .gembi { order: -1; width: 120px; }
+
+.scholarship-grid {
   display: grid;
   gap: 1.25rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.feature h2 { margin-bottom: 0.4rem; }
-.feature--peach { background: var(--peach); }
-.feature--mint { background: var(--mint); }
-.feature--lavender { background: var(--lavender); }
-/* The link on the lavender card: accent on lavender is checked in theme_test.go. */
+
+.sch-card {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+  padding: 1.5rem 1.25rem 1.25rem;
+  overflow: hidden;
+}
+.sch-card h3 { font-size: 1.4rem; margin: 0; }
+.sch-card h3 a { color: inherit; text-decoration: none; }
+.sch-card h3 a:hover { text-decoration: underline; }
+.sch-sponsor { margin: 0; color: var(--ink-soft); font-size: 0.92rem; }
+/* Keep titles clear of the corner ribbon. */
+.sch-card > div:first-of-type,
+.detail-head > :is(.kicker, h1) { padding-right: 4.5rem; }
+
+/* The diagonal ribbon in the corner names the kind of scholarship. */
+.ribbon {
+  position: absolute;
+  top: 1.5rem;
+  right: -3.1rem;
+  width: 12rem;
+  padding: 0.2rem 0;
+  transform: rotate(35deg);
+  background: var(--gold-soft);
+  border-block: 1px solid var(--gold);
+  color: var(--gold-ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.facts { display: grid; gap: 0.45rem; margin: 0; }
+.facts div { display: grid; gap: 0.05rem; }
+.facts dt { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-ink); }
+.facts dd { margin: 0; font-weight: 700; }
+.sch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--line-strong);
+}
+
+/* Application status badges. Submitted is a round gold seal. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.badge--ready { background: var(--accent-soft); color: var(--accent); }
+.badge--incomplete { background: var(--butter); color: var(--ink); }
+.badge--closed { background: var(--line); color: var(--ink); }
+.badge--submitted { background: var(--gold-soft); color: var(--gold-ink); }
+.badge--submitted::before {
+  content: "";
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold-soft), 0 0 0 3px var(--gold);
+}
+
+.steps {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.steps li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  /* The number spans both rows; 1fr gives its extra height to the second
+     row, so the title stays next to the number. */
+  grid-template-rows: min-content 1fr;
+  gap: 0.2rem 0.8rem;
+  align-items: start;
+  counter-increment: step;
+}
+.steps li::before {
+  content: counter(step);
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+.steps strong { font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; }
+.steps span { color: var(--ink-soft); }
+
+.trust { border-left: 4px solid var(--gold); }
+
+/* ---------- Scholarship detail ---------- */
+
+.detail-head { display: grid; gap: 0.5rem; padding: 1.75rem 1.25rem 1.5rem; overflow: hidden; }
+.detail-head .facts { margin-top: 0.5rem; }
+.requirements { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.4rem; }
+.requirements li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+.requirements li.is-done { background: var(--mint); }
+.apply-box { display: grid; gap: 0.75rem; justify-items: start; border-top: 4px solid var(--gold); }
+
+/* Steps 1 and 2 of "My application", linking /profile and /files. */
+.app-steps { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.app-steps a {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--card);
+}
+.app-steps a:hover { border-color: var(--accent); }
+.app-steps a[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 /* ---------- Empty and error states ---------- */
 
@@ -355,8 +555,8 @@ button:disabled { opacity: 0.7; cursor: progress; }
 /* ---------- Tables ---------- */
 
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 2px solid var(--line); vertical-align: middle; }
-th { font-size: 0.85rem; color: var(--ink-soft); font-weight: 800; }
+th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-size: 0.8rem; color: var(--ink-soft); font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
 tbody tr:last-child td { border-bottom: 0; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -376,15 +576,16 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   background: var(--accent-soft);
   white-space: nowrap;
 }
-.kind--idcard { background: var(--peach); }
+.kind--idcard { background: var(--sand); }
 .kind--document { background: var(--mint); }
-.kind--video { background: var(--lavender); }
+.kind--video { background: var(--sky); }
 
 .alg-links { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .alg-links a {
   padding: 0.15rem 0.6rem;
-  border: 2px solid var(--line);
-  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--card);
   font-size: 0.82rem;
   font-weight: 800;
   text-decoration: none;
@@ -394,16 +595,17 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* ---------- Application checklist (/files) ---------- */
 
 .progress { margin-top: 0.4rem; }
-.checklist { list-style: none; display: grid; gap: 0.75rem; }
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
 .slot {
   display: grid;
   gap: 0.35rem;
   padding: 1rem;
-  border: 2px solid var(--line);
-  border-radius: 1rem;
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--butter);
+  border-radius: var(--radius-sm);
   background: var(--card);
 }
-.slot--done { background: var(--mint); }
+.slot--done { background: var(--mint); border-left-color: var(--success); }
 .slot-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .slot-head h3 { margin: 0; }
 .status {
@@ -413,7 +615,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   font-weight: 800;
   white-space: nowrap;
 }
-.status--done { background: var(--card); }
+.status--done { background: var(--card); color: var(--success); }
 .status--missing { background: var(--butter); }
 .slot .file-name { font-weight: 800; overflow-wrap: anywhere; }
 .slot-actions, .slot-form { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 0.6rem; }
@@ -433,7 +635,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     display: grid;
     gap: 0.35rem;
     padding: 0.8rem 0;
-    border-bottom: 2px solid var(--line);
+    border-bottom: 1px solid var(--line);
   }
   .responsive-table tbody tr:last-child { border-bottom: 0; }
   .responsive-table td {
@@ -447,7 +649,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   }
   .responsive-table td::before {
     content: attr(data-label);
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 800;
     color: var(--ink-soft);
     text-align: left;
@@ -463,8 +665,22 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (min-width: 700px) {
   .card { padding: 1.5rem 1.75rem; }
   .page-head .gembi { width: 96px; }
-  .hero { padding: 2.5rem 1.75rem; }
-  .feature-grid { grid-template-columns: repeat(3, 1fr); }
+  .hero {
+    grid-template-columns: 1fr auto;
+    justify-items: start;
+    text-align: left;
+    padding: 2.75rem 2.5rem;
+  }
+  .hero > * { grid-column: 1; }
+  .hero-pitch { margin: 0; }
+  .hero-actions { justify-content: start; }
+  .hero-rule { margin: 0.25rem 0; }
+  .hero .gembi { order: 0; width: 176px; grid-row: 1 / span 6; grid-column: 2; align-self: center; }
+  .scholarship-grid { grid-template-columns: repeat(2, 1fr); }
+  .sch-card { padding: 1.75rem 1.75rem 1.5rem; }
+  .facts { grid-template-columns: repeat(2, 1fr); gap: 0.75rem 1.25rem; }
+  .steps { grid-template-columns: repeat(3, 1fr); }
+  .detail-head { padding: 2.25rem 2.25rem 1.75rem; }
 }
 
 /* htmx request indicators (htmx's own inline styles are disabled in layout.html). */

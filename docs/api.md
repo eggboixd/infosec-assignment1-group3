@@ -39,7 +39,8 @@ Test files are in `scripts/testdata/` and are all fake: `ktp-fake.jpg`, `ktp-fak
 ### Suggested folder order
 
 1. Public (§4.1) → 2. Register (§4.2) → 3. Login (§4.3) → 4. Private data (§4.5) → 5. Files (§4.4) →
-6. Benchmarks (§4.6) → 7. Cross-cutting checks (§3) → 8. Logout (§4.3, last, because it ends the session).
+6. Scholarships (§4.7) → 7. Benchmarks (§4.6) → 8. Cross-cutting checks (§3) → 9. Logout (§4.3, last, because it
+ends the session).
 
 Rate limits are per client IP: **10 logins and 5 registrations per minute**. Running the register folder twice in a
 minute returns 429; wait 60 seconds.
@@ -49,12 +50,14 @@ minute returns 429; wait 60 seconds.
 | Method | Path | Login | Success | Body |
 |---|---|---|---|---|
 | GET | `/healthz` | no | 200 | JSON |
-| GET | `/` | no | 200 (logged out) / 303 → `/files` (logged in) | HTML |
+| GET | `/` | no | 200: scholarship home (with the student's status when logged in) | HTML |
 | GET | `/static/style.css` (and other assets) | no | 200 | CSS/JS/fonts |
-| GET | `/register` | no | 200 (logged out) / 303 → `/files` (logged in) | HTML |
+| GET | `/register` | no | 200 (logged out) / 303 → `/` (logged in) | HTML |
 | POST | `/register` | no | 303 → `/login` | — |
-| GET | `/login` | no | 200 (logged out) / 303 → `/files` (logged in) | HTML |
-| POST | `/login` | no | 303 → `/files`, sets `session` cookie | — |
+| GET | `/login` | no | 200 (logged out) / 303 → `/` (logged in) | HTML |
+| POST | `/login` | no | 303 → `/`, sets `session` cookie | — |
+| GET | `/scholarships/:id` | no | 200 (unknown id: 404) | HTML |
+| POST | `/scholarships/:id/apply` | yes | 303 → `/scholarships/:id` | — |
 | POST | `/logout` | yes | 303 → `/login`, clears `session` | — |
 | GET | `/profile?alg=aes\|des\|rc4` | yes | 200 | HTML |
 | POST | `/profile` | yes | 303 → `/profile?alg=aes` | — |
@@ -75,7 +78,7 @@ Every protected route, for any method, answers a request without a valid `sessio
 
 | Case | Request | Expect |
 |---|---|---|
-| No cookie | `GET /files`, `GET /profile`, `GET /benchmarks`, `GET /benchmarks/export.csv`, `POST /files`, `DELETE /files/{{fileId}}`, `POST /logout` | 303, `Location: /login` |
+| No cookie | `GET /files`, `GET /profile`, `GET /benchmarks`, `GET /benchmarks/export.csv`, `POST /files`, `DELETE /files/{{fileId}}`, `POST /scholarships/bakti-keluarga/apply`, `POST /logout` | 303, `Location: /login` |
 | Bad cookie | any of the above with `Cookie: session=AAAA` | 303, `Location: /login` |
 
 ### 3.2 CSRF protection
@@ -117,8 +120,8 @@ POST and DELETE requests are rejected when the browser says they come from anoth
 |---|---|---|
 | Health | `GET /healthz` | 200, JSON `{"status":"ok","checks":{"minio":"ok","mongodb":"ok"}}` |
 | Health, MongoDB down | `docker compose stop mongo`, then `GET /healthz` | 503, `"mongodb":"unavailable"` (start it again after) |
-| Home, logged out | `GET /` | 200, body contains `Secure Store` |
-| Home, logged in | `GET /` with session | 303, `Location: /files` |
+| Home, logged out | `GET /` | 200, body contains `Pendaftaran Beasiswa 2027 dibuka`, `Beasiswa Prestasi Nusantara` and `Beasiswa Bakti Keluarga`, no `badge--` |
+| Home, logged in | `GET /` with session | 200, body contains your username and one status badge per card (for example `7 items missing`) |
 | Static file | `GET /static/style.css` | 200, `Content-Type: text/css; charset=utf-8` |
 | Unknown page | `GET /nope` | 404, body contains `find that page` |
 
@@ -137,7 +140,7 @@ Body: `x-www-form-urlencoded` with `username`, `password`, `confirm`.
 | Confirm differs | `confirm` ≠ `password` | 422, `The two passwords don` (the page shows "don't match") |
 | Missing fields | empty body | 422 |
 | Rate limit | 6th register within a minute from the same IP | **429**, `Retry-After` header, `Too many attempts.` |
-| Already logged in | `GET /register` with session | 303, `Location: /files` |
+| Already logged in | `GET /register` with session | 303, `Location: /` |
 
 Usernames are stored lower-case: `Budi01` and `budi01` are the same account.
 
@@ -147,7 +150,7 @@ Usernames are stored lower-case: `Budi01` and `budi01` are the same account.
 
 | Case | Body | Expect |
 |---|---|---|
-| Success | correct credentials | 303, `Location: /files`, `Set-Cookie: session=...` |
+| Success | correct credentials | 303, `Location: /`, `Set-Cookie: session=...` |
 | Wrong password | correct username, wrong password | **401**, `Wrong username or password.` |
 | Unknown user | username that doesn't exist | 401, **same message** (no hint that the user is missing) |
 | Empty form | empty body | 401, same message |
@@ -166,31 +169,41 @@ Body: **form-data** (multipart) with two fields, **in this order**:
 
 | Key | Type | Value |
 |---|---|---|
-| `kind` | text | `idcard`, `document` or `video` |
+| `slot` | text | the application document: `ktp`, `cv`, `transcript`, `recommendation`, `salary` or `intro_video` |
 | `file` | file | the file |
 
-The `kind` field must come before `file` (the server streams the upload and needs the kind first). The file's
-`Content-Type` set by the client is ignored; the type is detected from the extension and the first bytes.
+The `slot` field must come before `file` (the server streams the upload and needs it first). Each slot accepts
+only some extensions, and the content must match the extension. The file's `Content-Type` set by the client is
+ignored; the type is detected from the extension and the first bytes.
 
-| Case | kind | file | Expect |
+| Slot | Accepts | Test file |
+|---|---|---|
+| `ktp` | JPG, JPEG, PNG | `ktp-fake.jpg` or `ktp-fake.png` |
+| `cv`, `transcript` | PDF | `sample.pdf` |
+| `recommendation` | DOC, DOCX | `sample.docx` |
+| `salary` | XLS, XLSX | `sample.xlsx` |
+| `intro_video` | MP4, WebM | `sample.mp4` |
+
+| Case | slot | file | Expect |
 |---|---|---|---|
-| ID card JPG | `idcard` | `ktp-fake.jpg` | 303, `Location: /files` |
-| ID card PNG | `idcard` | `ktp-fake.png` | 303 |
-| PDF | `document` | `sample.pdf` | 303 |
-| Word | `document` | `sample.docx` | 303 |
-| Excel | `document` | `sample.xlsx` | 303 |
-| Video | `video` | `sample.mp4` | 303 |
-| Wrong kind for type | `idcard` | `sample.pdf` | **415**, `allowed for this kind` |
-| Type not allowed | `document` | `sample.txt` | 415 |
-| Renamed file | `idcard` | `sample.pdf` renamed to `fake.png` | 415 (content doesn't match the extension) |
-| Unknown kind | `audio` | `sample.pdf` | **400**, `Unknown file kind.` |
-| Empty file | `document` | a 0-byte `empty.pdf` | 400, `That file is empty.` |
-| File before kind | fields in the wrong order | 400, `The upload form was incomplete.` |
-| No file field | only `kind` | 400, same message |
+| Each slot | as in the table above | its test file | 303, `Location: /files` |
+| Extension in upper case | `cv` | `sample.pdf` renamed to `CV.PDF` | 303 |
+| Type not accepted by the slot | `salary` | `sample.pdf` | **415**, `accepted for this document` |
+| Another wrong type | `cv` | `sample.docx` | 415 |
+| Renamed file | `ktp` | `sample.pdf` renamed to `fake.png` | 415 (content doesn't match the extension) |
+| Type not allowed at all | `cv` | `sample.txt` | 415 |
+| Unknown slot | `passport` | `sample.pdf` | **400**, `Unknown document slot.` |
+| Empty file | `cv` | a 0-byte `empty.pdf` | 400, `That file is empty.` |
+| File before slot | fields in the wrong order | 400, `The upload form was incomplete.` |
+| No file field | only `slot` | 400, same message |
 | Not multipart | `x-www-form-urlencoded` body | 400 |
-| Too large | `idcard`, an 11 MiB `.png` | **413** |
+| Too large | `ktp`, an 11 MiB `.png` | **413** |
 
-Errors are shown on the file list page (HTML) with the message in a red box; nothing is stored.
+Errors are shown on the checklist page (HTML) with the message in a red box; nothing is stored. A second file in a
+filled slot is stored and listed under "Other files".
+
+The older form with a `kind` field (`idcard`, `document` or `video`) instead of `slot` still works and stores a file
+without a slot; `scripts/bench` uses it. An unknown kind gives **400**, `Unknown file kind.`
 
 #### List — `GET /files`
 
@@ -238,7 +251,7 @@ Clear `fileSha` before a new file. For a reference value, run `sha256sum scripts
 
 | Case | Expect |
 |---|---|
-| Own file | **200**, empty body; the file disappears from `GET /files`, its three objects are removed from MinIO |
+| Own file | **200**, empty body, `HX-Refresh: true` (the page reloads so the slot shows as missing again); the file disappears from `GET /files`, its three objects are removed from MinIO |
 | Again (already deleted) | 404 |
 | Another user's file | 404, and the file is still there for its owner |
 | Bad id (`/files/xyz`) | 404 |
@@ -307,6 +320,28 @@ pm.test("csv export", () => {
   lines.slice(1).forEach(l => pm.expect(l.split(",")[1]).to.be.oneOf(["aes", "des", "rc4"]));
 });
 ```
+
+### 4.7 Scholarships
+
+The two scholarships are `prestasi-nusantara` (merit) and `bakti-keluarga` (need-based). Both need the private data
+(§4.5) and all six documents (§4.4). Use a new user for this folder.
+
+| Case | Request | Expect |
+|---|---|---|
+| Detail, logged out | `GET /scholarships/bakti-keluarga` | 200, `Beasiswa Bakti Keluarga`, `Log in to apply` |
+| Unknown scholarship | `GET /scholarships/lpdp` | **404**, `find that scholarship` |
+| Submit, logged out | `POST /scholarships/bakti-keluarga/apply` | 303, `Location: /login` |
+| Submit, nothing filled in | same, with session | **422**, `not complete yet` |
+| Detail, one document missing | `GET /scholarships/bakti-keluarga` after saving private data and uploading five slots | 200, `Still missing: Self-introduction video.`, `btn--locked` |
+| Detail, ready | after uploading the sixth | 200, `action="/scholarships/bakti-keluarga/apply"` |
+| Submit | `POST /scholarships/bakti-keluarga/apply` | 303, `Location: /scholarships/bakti-keluarga` |
+| Submitted | `GET /scholarships/bakti-keluarga` | 200, `badge--submitted`, `application was received` |
+| Submit twice | same `POST` again | **409**, `already applied` |
+| Second scholarship | `POST /scholarships/prestasi-nusantara/apply` | 303 (one set of documents serves both) |
+| Unknown scholarship | `POST /scholarships/nope/apply` | 404 |
+| Another user | log in as a second user, `GET /` | 200, no `badge--submitted` (applications are per user) |
+| Foreign origin | the submit `POST` with `Origin: https://evil.example` | **403** (§3.2) |
+| Tampered application | flip a byte of a stored application (§5.6), then `GET /` | **422**, `integrity check` |
 
 ## 5. Checking the encryption
 
@@ -392,3 +427,22 @@ go test -run '^$' -bench . ./internal/crypto/
 
 Measured results from two machines, with every method compared on one of them, are in
 [docs/benchmark/README.md](benchmark/README.md).
+
+### 5.6 Applications are stored encrypted three times
+
+Which scholarship a student applied to is private (a need-based scholarship implies a low family income), so it is
+stored like a profile field (docs/decisions.md D38):
+
+```bash
+M 'printjson(db.applications.findOne())'
+M 'print(JSON.stringify(db.applications.find().toArray()).includes("bakti"))'   # false
+```
+
+Expect `scholarship` with `aes`, `des` and `rc4` copies (`ct` and `meta`), a 32-byte `index` (the HMAC blind index
+that keeps one application per student and scholarship) and `submitted_at`. To check tampering, flip the last byte of
+the AES copy, then open `/` as that student (422):
+
+```bash
+M 'const a=db.applications.findOne(); const b=Buffer.from(a.scholarship.aes.ct.buffer); b[b.length-1]^=1; db.applications.updateOne({_id:a._id},{$set:{"scholarship.aes.ct":BinData(0,b.toString("base64"))}})'
+```
+
