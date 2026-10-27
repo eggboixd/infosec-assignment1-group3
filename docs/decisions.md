@@ -561,7 +561,7 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
 - **Trade-offs:** a magic-byte check is not validation. Any ZIP named `.docx` is accepted. This is acceptable because
   files are only ever returned as downloads to their owner, never rendered inline.
 
-### D34. An upload records which application slot it fills
+### D37. An upload records which application slot it fills
 
 - **Decision:** `FileRecord` gets an optional `Slot` (`ktp`, `cv`, `transcript`, `recommendation`, `salary`,
   `intro_video`). The upload form sends a `slot` part before `file`; the kind comes from a slot table and the extension
