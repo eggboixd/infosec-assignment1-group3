@@ -21,9 +21,10 @@ import (
 
 // User-facing messages. They never include file contents or names.
 const (
-	msgBadForm      = "The upload form was incomplete. Choose a kind and a file, then try again."
-	msgUnknownKind  = "Unknown file kind. Choose ID card, document or video."
-	msgTypeMismatch = "That file type isn't allowed for this kind, or its content doesn't match its extension."
+	msgBadForm      = "The upload form was incomplete. Choose a file and try again."
+	msgUnknownKind  = "Unknown file kind. Use one of the upload buttons on the checklist."
+	msgUnknownSlot  = "Unknown document slot. Use the upload button next to the document you want to add."
+	msgTypeMismatch = "That file type isn't accepted for this document, or its content doesn't match its extension. Check the accepted types next to the upload button."
 	msgEmpty        = "That file is empty."
 	msgUploadFailed = "The file could not be stored. Please try again."
 	msgLoadFailed   = "Your files could not be loaded. Please try again."
@@ -82,19 +83,29 @@ func (h *Handler) upload(c *gin.Context) {
 		return
 	}
 
-	// The "kind" part must come first so it is validated before the file.
+	// The "slot" (or legacy "kind") part must come first so it is validated
+	// before the file is read.
 	part, err := mr.NextPart()
-	if err != nil || part.FormName() != "kind" {
+	if err != nil || (part.FormName() != "slot" && part.FormName() != "kind") {
 		h.uploadError(c, user, err)
 		return
 	}
-	kindValue, err := io.ReadAll(io.LimitReader(part, maxKindLen))
+	isSlot := part.FormName() == "slot"
+	value, err := io.ReadAll(io.LimitReader(part, maxKindLen))
 	if err != nil {
 		h.uploadError(c, user, err)
 		return
 	}
-	kind, err := ParseKind(strings.TrimSpace(string(kindValue)))
-	if err != nil {
+	var (
+		slot SlotInfo
+		kind Kind
+	)
+	if isSlot {
+		if slot, err = ParseSlot(strings.TrimSpace(string(value))); err != nil {
+			h.renderList(c, user, http.StatusBadRequest, msgUnknownSlot)
+			return
+		}
+	} else if kind, err = ParseKind(strings.TrimSpace(string(value))); err != nil {
 		h.renderList(c, user, http.StatusBadRequest, msgUnknownKind)
 		return
 	}
@@ -106,12 +117,18 @@ func (h *Handler) upload(c *gin.Context) {
 	}
 	defer part.Close()
 
-	rec, err := h.svc.Upload(c.Request.Context(), user.ID, kind, part.FileName(), part)
+	var rec *FileRecord
+	if isSlot {
+		rec, err = h.svc.UploadSlot(c.Request.Context(), user.ID, slot, part.FileName(), part)
+		kind = slot.Kind
+	} else {
+		rec, err = h.svc.Upload(c.Request.Context(), user.ID, kind, part.FileName(), part)
+	}
 	if err != nil {
 		h.uploadError(c, user, err)
 		return
 	}
-	slog.Info("files: uploaded", "user_id", user.ID.Hex(), "file_id", rec.ID.Hex(), "kind", kind, "bytes", rec.Size)
+	slog.Info("files: uploaded", "user_id", user.ID.Hex(), "file_id", rec.ID.Hex(), "kind", kind, "slot", rec.Slot, "bytes", rec.Size)
 	c.Redirect(http.StatusSeeOther, "/files")
 }
 
@@ -242,6 +259,9 @@ func (h *Handler) remove(c *gin.Context) {
 	switch err := h.svc.Delete(c.Request.Context(), user.ID, id); {
 	case err == nil:
 		slog.Info("files: deleted", "user_id", user.ID.Hex(), "file_id", id.Hex())
+		// A deleted file frees its checklist slot, so the page is reloaded
+		// rather than patching one row.
+		c.Header("HX-Refresh", "true")
 		c.Status(http.StatusOK)
 	case errors.Is(err, ErrNotFound):
 		c.String(http.StatusNotFound, msgNotFound)
@@ -261,17 +281,22 @@ func (h *Handler) renderList(c *gin.Context, user *auth.User, status int, msg st
 	h.render(c, status, files, msg)
 }
 
-// render passes exactly the data files.html and layout.html document.
+// render passes exactly the data files.html and layout.html document: the
+// application checklist built from files.
 func (h *Handler) render(c *gin.Context, status int, files []FileView, errMsg string) {
 	user, _ := auth.CurrentUser(c)
 	flash := auth.TakeFlash(c)
 	if errMsg != "" {
 		flash = &auth.Flash{Kind: "error", Message: errMsg}
 	}
+	cl := BuildChecklist(files)
 	c.HTML(status, "files.html", gin.H{
-		"Title":        "Files",
+		"Title":        "Application documents",
 		"User":         user,
-		"Files":        files,
+		"Slots":        cl.Slots,
+		"Others":       cl.Others,
+		"Uploaded":     cl.Uploaded,
+		"Total":        cl.Total,
 		"JustLoggedIn": auth.JustLoggedIn(c),
 		"Flash":        flash,
 	})

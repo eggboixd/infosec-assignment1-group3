@@ -561,6 +561,20 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
 - **Trade-offs:** a magic-byte check is not validation. Any ZIP named `.docx` is accepted. This is acceptable because
   files are only ever returned as downloads to their owner, never rendered inline.
 
+### D37. An upload records which application slot it fills
+
+- **Decision:** `FileRecord` gets an optional `Slot` (`ktp`, `cv`, `transcript`, `recommendation`, `salary`,
+  `intro_video`). The upload form sends a `slot` part before `file`; the kind comes from a slot table and the extension
+  must also be one the slot accepts (a salary slip must be XLS/XLSX, not a PDF). The old `kind` part still works.
+  Records without a slot (uploaded earlier) still load and show as "other files".
+- **Alternatives:** no backend change (the UI could only group by kind: CV, transcript, recommendation letter and
+  salary slip are all `document`); put a slot tag in the encrypted filename (breaks the plain form and mangles names).
+- **Why:** the scholarship checklist needs to know which of four document slots a file fills. A plain optional field is
+  the smallest change. It is not private data, so it is stored unencrypted, like `kind`. The `Encryptor` interface and
+  the stored crypto format are unchanged.
+- **Trade-offs:** the slot is only a label. Uploading a second file to the same slot adds another file (the UI offers
+  the upload button only for empty slots, and delete frees the slot).
+
 ---
 
 ## Known limitations (file storage)

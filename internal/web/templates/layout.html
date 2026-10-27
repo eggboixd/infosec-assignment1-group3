@@ -15,7 +15,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
-  <title>{{if .Title}}{{.Title}} · {{end}}Secure Store</title>
+  <title>{{if .Title}}{{.Title}} · {{end}}BeasiswaKu</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/nunito-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
@@ -29,11 +29,11 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
-    <a class="brand" href="/"><span class="gembi gembi--nav">{{template "mascot" "smiling"}}</span>Secure Store</a>
+    <a class="brand" href="/"><span class="gembi gembi--nav">{{template "mascot" "smiling"}}</span>BeasiswaKu</a>
     {{if .User}}
     <nav class="site-nav" aria-label="Main">
-      <a href="/files">Files</a>
-      <a href="/profile">Private data</a>
+      <a href="/files">Documents</a>
+      <a href="/profile">Applicant data</a>
       <a href="/benchmarks">Benchmarks</a>
       <span class="user-chip" title="Logged in as {{.User.Username}}">{{.User.Username}}</span>
       <form method="post" action="/logout" class="inline"><button type="submit" class="btn--ghost btn--small">Log out</button></form>
@@ -52,7 +52,7 @@
 {{define "footer"}}
   </main>
   <footer class="site-footer">
-    Gembi keeps every item encrypted three times: AES-256, DES and RC4.
+    BeasiswaKu, the scholarship application portal. Gembi keeps your application encrypted three times: AES-256, DES and RC4.
   </footer>
 </body>
 </html>

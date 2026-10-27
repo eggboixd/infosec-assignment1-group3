@@ -17,22 +17,25 @@ import (
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
 )
 
-// testFileRow has the fields files.html reads from each row: the
-// FileRecord fields plus the decrypted Name that feature/file-storage
-// provides.
-type testFileRow struct {
-	ID        bson.ObjectID
-	Name      string
-	Kind      files.Kind
-	Size      int64
-	CreatedAt time.Time
+// checklist builds the data files.html reads, from the same function the
+// handler uses, so the template and the Go side can't drift apart.
+func checklist(rows ...files.FileView) map[string]any {
+	cl := files.BuildChecklist(rows)
+	return map[string]any{"Slots": cl.Slots, "Others": cl.Others, "Uploaded": cl.Uploaded, "Total": cl.Total}
+}
+
+func withData(m map[string]any, extra map[string]any) map[string]any {
+	for k, v := range extra {
+		m[k] = v
+	}
+	return m
 }
 
 var (
 	testFileID = bson.ObjectID{0x65, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2a}
-	testFiles  = []testFileRow{
-		{ID: testFileID, Name: "ktp.png", Kind: files.KindIDCard, Size: 1536, CreatedAt: time.Date(2026, 10, 1, 9, 30, 0, 0, time.UTC)},
-		{ID: bson.ObjectID{0x65, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2b}, Name: "report.pdf", Kind: files.KindDocument, Size: 3 << 20, CreatedAt: time.Date(2026, 10, 2, 14, 0, 0, 0, time.UTC)},
+	testFiles  = []files.FileView{
+		{ID: testFileID, Name: "ktp.png", Kind: files.KindIDCard, Slot: files.SlotKTP, Size: 1536, CreatedAt: time.Date(2026, 10, 1, 9, 30, 0, 0, time.UTC)},
+		{ID: bson.ObjectID{0x65, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2b}, Name: "cv.pdf", Kind: files.KindDocument, Slot: files.SlotCV, Size: 3 << 20, CreatedAt: time.Date(2026, 10, 2, 14, 0, 0, 0, time.UTC)},
 	}
 )
 
@@ -115,9 +118,9 @@ func TestHomeTemplate(t *testing.T) {
 			data: map[string]any{},
 			mood: "hello",
 			want: []string{
-				`data-base-mood="smiling"`, "<h1 id=\"home-title\">Secure Store</h1>",
+				`data-base-mood="smiling"`, "<h1 id=\"home-title\">BeasiswaKu</h1>",
 				`href="/login"`, `href="/register"`, `href="/benchmarks"`,
-				"AES-256", "DES", "RC4", "CTR", "HMAC", "ID card",
+				"AES-256", "DES", "RC4", "CTR", "HMAC", "scholarship", "KTP",
 			},
 			notWant: []string{"site-nav"},
 			count:   map[string]int{`class="card feature `: 3},
@@ -190,83 +193,102 @@ func TestAuthTemplates(t *testing.T) {
 
 func TestFilesTemplate(t *testing.T) {
 	hex := testFileID.Hex()
+	legacy := files.FileView{ID: bson.ObjectID{0x65, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2c}, Name: "old-scan.pdf", Kind: files.KindDocument, Size: 100, CreatedAt: time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)}
 	runPageCases(t, []pageCase{
 		{
-			name: "with files: smiling, one row per file, three downloads each",
+			name: "two of six uploaded: smiling, checklist with status, downloads and delete",
 			page: "files.html",
-			data: map[string]any{"Files": testFiles},
+			data: checklist(testFiles...),
 			mood: "smiling",
 			want: []string{
-				`data-base-mood="smiling"`,
-				"ktp.png", "report.pdf", "ID card", "Document", "1.5 KiB", "3.0 MiB",
-				`datetime="2026-10-01T09:30:00Z"`,
-				"/files/" + hex + "/download?alg=aes",
-				"/files/" + hex + "/download?alg=des",
-				"/files/" + hex + "/download?alg=rc4",
-				`hx-delete="/files/` + hex + `"`, `hx-target="closest tr"`, `hx-swap="outerHTML"`,
-				"data-gembi-list", "data-gembi-empty hidden",
+				`data-base-mood="smiling"`, "My application documents", "<strong>2 of 6</strong>",
+				"KTP (ID card scan)", "CV", "Academic transcript", "Recommendation letter", "Parents&#39; salary slip", "Self-introduction video",
+				"Accepted: JPG, JPEG, PNG", "Accepted: DOC, DOCX", "Accepted: XLS, XLSX", "Accepted: MP4, WEBM",
+				"ktp.png", "cv.pdf", "1.5 KiB", "3.0 MiB", `datetime="2026-10-01T09:30:00Z"`,
+				"/files/" + hex + "/download?alg=aes", "/files/" + hex + "/download?alg=des", "/files/" + hex + "/download?alg=rc4",
+				`hx-delete="/files/` + hex + `"`, `hx-swap="none"`,
 			},
-			count: map[string]int{"data-gembi-download": 6, "hx-delete=": 2},
+			notWant: []string{"Other files"},
+			count: map[string]int{
+				"status--done\">Uploaded": 2, "status--missing\">Missing": 4,
+				"data-gembi-download": 6, "hx-delete=": 2,
+				`name="slot" value=`: 4, `type="file"`: 4,
+			},
 		},
 		{
-			name:    "no files: sleepy empty state and no table",
+			name:    "nothing uploaded: sleepy and six upload forms, no downloads",
 			page:    "files.html",
-			data:    map[string]any{"Files": []testFileRow{}},
+			data:    checklist(),
 			mood:    "sleepy",
-			want:    []string{`data-base-mood="sleepy"`, "Nothing stored yet."},
-			notWant: []string{"<table", "data-gembi-empty hidden"},
+			want:    []string{`data-base-mood="sleepy"`, "<strong>0 of 6</strong>"},
+			notWant: []string{"data-gembi-download", "hx-delete=", "Other files"},
+			count:   map[string]int{`name="slot" value=`: 6, `enctype="multipart/form-data"`: 6},
 		},
 		{
-			name:    "files not provided yet renders the empty state",
-			page:    "files.html",
-			data:    map[string]any{},
-			mood:    "sleepy",
-			want:    []string{"Nothing stored yet.", "Your files"},
-			notWant: []string{"<table"},
+			name: "slot is posted before the file, with the right picker filter",
+			page: "files.html",
+			data: checklist(),
+			want: []string{
+				`<input type="hidden" name="slot" value="salary">`, `accept=".xls,.xlsx"`,
+				`<input type="hidden" name="slot" value="intro_video">`, `accept=".mp4,.webm"`,
+				`action="/files"`, `data-gembi-busy="Locking it up…"`,
+			},
+		},
+		{
+			name: "legacy and duplicate files show under Other files",
+			page: "files.html",
+			data: checklist(append([]files.FileView{legacy}, files.FileView{ID: bson.ObjectID{0x65, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2d}, Name: "cv-old.pdf", Kind: files.KindDocument, Slot: files.SlotCV, Size: 5}, testFiles[1])...),
+			want: []string{"Other files", "old-scan.pdf", "cv-old.pdf", "Document"},
+			count: map[string]int{"<tr>": 3, "status--done\">Uploaded": 1},
 		},
 		{
 			name: "just logged in: unlocks once, then settles on the base mood",
 			page: "files.html",
-			data: map[string]any{"Files": testFiles, "JustLoggedIn": true},
+			data: withData(checklist(testFiles...), map[string]any{"JustLoggedIn": true}),
 			mood: "unlocked",
 			want: []string{`data-base-mood="smiling"`},
 		},
 		{
-			name: "just logged in with no files settles to sleepy",
+			name: "just logged in with nothing uploaded settles to sleepy",
 			page: "files.html",
-			data: map[string]any{"JustLoggedIn": true},
+			data: withData(checklist(), map[string]any{"JustLoggedIn": true}),
 			mood: "unlocked",
 			want: []string{`data-base-mood="sleepy"`},
 		},
 		{
 			name: "greets the user",
 			page: "files.html",
-			data: map[string]any{"User": &auth.User{Username: "alice"}},
+			data: withData(checklist(), map[string]any{"User": &auth.User{Username: "alice"}}),
 			want: []string{"Hi, alice!", "site-nav"},
 		},
 		{
 			name:    "file names are escaped",
 			page:    "files.html",
-			data:    map[string]any{"Files": []testFileRow{{ID: testFileID, Name: `<img src=x onerror=alert(1)>.pdf`, Kind: files.KindDocument}}},
+			data:    checklist(files.FileView{ID: testFileID, Name: `<img src=x onerror=alert(1)>.pdf`, Kind: files.KindDocument, Slot: files.SlotCV}),
 			want:    []string{"&lt;img src=x onerror=alert(1)&gt;.pdf"},
 			notWant: []string{"<img src=x"},
-		},
-		{
-			name: "upload form keeps the multipart POST and shows Gembi busy",
-			page: "files.html",
-			data: map[string]any{},
-			want: []string{`action="/files"`, `enctype="multipart/form-data"`, `data-gembi-busy="Locking it up…"`},
 		},
 	})
 }
 
-// The server validates "kind" before it reads any file bytes, so the
-// form must send the kind part first.
-func TestFilesFormSendsKindBeforeFile(t *testing.T) {
-	out := renderPage(t, "files.html", map[string]any{})
-	kind, file := strings.Index(out, `name="kind"`), strings.Index(out, `name="file"`)
-	if kind < 0 || file < 0 || kind > file {
-		t.Errorf(`name="kind" at %d, name="file" at %d: kind must come first`, kind, file)
+// The server validates "slot" before it reads any file bytes, so every
+// upload form must send the slot part first.
+func TestFilesFormsSendSlotBeforeFile(t *testing.T) {
+	out := renderPage(t, "files.html", checklist())
+	forms := strings.Split(out, "<form")[1:]
+	n := 0
+	for _, f := range forms {
+		if !strings.Contains(f, `enctype="multipart/form-data"`) {
+			continue
+		}
+		n++
+		slot, file := strings.Index(f, `name="slot"`), strings.Index(f, `name="file"`)
+		if slot < 0 || file < 0 || slot > file {
+			t.Errorf(`form %d: name="slot" at %d, name="file" at %d: slot must come first`, n, slot, file)
+		}
+	}
+	if n != 6 {
+		t.Errorf("%d upload forms, want 6", n)
 	}
 }
 
@@ -289,9 +311,9 @@ func TestProfileTemplate(t *testing.T) {
 			want: []string{
 				`value="Test Person"`, `value="0000000000000001"`, `value="2000-01-31"`,
 				">Jl. Contoh No. 1</textarea>", `value="081200000000"`, `value="test@example.com"`,
-				`<option value="des" selected>`, "decrypted with DES", "data-autosubmit",
+				`<option value="des" selected>`, "decrypted with DES", "data-autosubmit", "<h1>Applicant data</h1>", "Your applicant data", "scholarship",
 			},
-			notWant: []string{`<option value="aes" selected>`, `<option value="rc4" selected>`},
+			notWant: []string{`<option value="aes" selected>`, `<option value="rc4" selected>`, "Private data"},
 		},
 		{
 			name: "algorithm defaults to AES",
@@ -310,7 +332,7 @@ func TestProfileTemplate(t *testing.T) {
 			page:    "profile.html",
 			data:    map[string]any{},
 			mood:    "sleepy",
-			want:    []string{"Nothing stored yet.", `name="full_name" autocomplete="name" required maxlength="100" value=""`},
+			want:    []string{"Nothing stored yet.", "Add your applicant data", `name="full_name" autocomplete="name" required maxlength="100" value=""`},
 			notWant: []string{`name="alg"`, "Test Person"},
 		},
 		{
@@ -418,7 +440,7 @@ func TestTemplatesAreCSPSafe(t *testing.T) {
 		"User":         &auth.User{Username: "u"},
 		"Flash":        map[string]string{"Kind": "success", "Message": "Saved."},
 		"Errors":       []string{"Something is wrong."},
-		"Files":        testFiles,
+		"Slots":        files.BuildChecklist(testFiles).Slots,
 		"JustLoggedIn": true,
 		"Profile":      &profile.PrivateData{FullName: "Test Person"},
 		"Alg":          crypto.AES,

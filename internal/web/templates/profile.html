@@ -14,8 +14,8 @@
       {{- if .Errors}}{{template "mascot" "confused"}}{{else if .Profile}}{{template "mascot" "smiling"}}{{else}}{{template "mascot" "sleepy"}}{{end -}}
     </div>
     <div>
-      <h1>Private data</h1>
-      <p>Personal data as defined by GDPR and UU PDP No. 27/2022. Every field is stored encrypted with AES-256, DES and RC4, and only you can read it back.</p>
+      <h1>Applicant data</h1>
+      <p>Your identity details for the scholarship application. This is personal data under GDPR and UU PDP No. 27/2022, so every field is stored encrypted with AES-256, DES and RC4, and only you can read it back.</p>
     </div>
   </div>
 </section>
@@ -38,18 +38,18 @@
 {{end}}
 
 <section class="card" aria-labelledby="data-title">
-  <h2 id="data-title">{{if .Profile}}Your data{{else}}Add your data{{end}}</h2>
+  <h2 id="data-title">{{if .Profile}}Your applicant data{{else}}Add your applicant data{{end}}</h2>
   {{with .Errors}}
   <div class="form-errors" role="alert">
     <ul>{{range .}}<li>{{.}}</li>{{end}}</ul>
   </div>
   {{end}}
-  {{if not .Profile}}<p class="muted">Nothing stored yet. Gembi is napping until you save something.</p>{{end}}
+  {{if not .Profile}}<p class="muted">Nothing stored yet. Gembi is napping until you save your applicant data.</p>{{end}}
   <form method="post" action="/profile" class="stack" data-gembi-busy="Encrypting…">
     <label>Full name
       <input name="full_name" autocomplete="name" required maxlength="100" value="{{with .Profile}}{{.FullName}}{{end}}">
     </label>
-    <label>NIK
+    <label>NIK (national ID number)
       <input name="nik" inputmode="numeric" autocomplete="off" required pattern="[0-9]{16}" maxlength="16" value="{{with .Profile}}{{.NIK}}{{end}}">
       <span class="hint">16-digit national identity number.</span>
     </label>
