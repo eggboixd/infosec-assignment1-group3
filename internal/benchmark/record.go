@@ -37,3 +37,7 @@ type Record struct {
 	TotalDuration time.Duration `bson:"total_ns"`
 	CreatedAt     time.Time     `bson:"created_at"`
 }
+
+// CryptoMS and TotalMS return the durations in milliseconds, for the page.
+func (r Record) CryptoMS() float64 { return ms(r.CryptoDuration) }
+func (r Record) TotalMS() float64  { return ms(r.TotalDuration) }

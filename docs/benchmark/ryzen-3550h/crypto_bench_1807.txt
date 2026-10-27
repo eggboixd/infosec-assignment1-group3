@@ -1,0 +1,31 @@
+goos: linux
+goarch: amd64
+pkg: github.com/eggboixd/infosec-assignment1-group3/internal/crypto
+cpu: AMD Ryzen 5 3550H with Radeon Vega Mobile Gfx
+BenchmarkKeystream/aes/10MiB-8         	     543	   2341397 ns/op	4478.42 MB/s	    1024 B/op	       2 allocs/op
+BenchmarkKeystream/aes/10MiB-8         	     524	   2224077 ns/op	4714.66 MB/s	    1024 B/op	       2 allocs/op
+BenchmarkKeystream/aes/10MiB-8         	     501	   2403026 ns/op	4363.57 MB/s	    1024 B/op	       2 allocs/op
+BenchmarkKeystream/des/10MiB-8         	       8	 129026109 ns/op	  81.27 MB/s	     728 B/op	       4 allocs/op
+BenchmarkKeystream/des/10MiB-8         	       8	 131108250 ns/op	  79.98 MB/s	     730 B/op	       4 allocs/op
+BenchmarkKeystream/des/10MiB-8         	       8	 131723414 ns/op	  79.60 MB/s	     728 B/op	       4 allocs/op
+BenchmarkKeystream/rc4/10MiB-8         	      42	  30210260 ns/op	 347.09 MB/s	    1152 B/op	       1 allocs/op
+BenchmarkKeystream/rc4/10MiB-8         	      39	  29818879 ns/op	 351.65 MB/s	    1152 B/op	       1 allocs/op
+BenchmarkKeystream/rc4/10MiB-8         	      38	  29709344 ns/op	 352.94 MB/s	    1152 B/op	       1 allocs/op
+BenchmarkEncrypt/aes/10MiB-8           	     138	   8651642 ns/op	1212.00 MB/s	   40160 B/op	      59 allocs/op
+BenchmarkEncrypt/aes/10MiB-8           	     139	   8620536 ns/op	1216.37 MB/s	   40161 B/op	      59 allocs/op
+BenchmarkEncrypt/aes/10MiB-8           	     138	   8788780 ns/op	1193.08 MB/s	   40160 B/op	      59 allocs/op
+BenchmarkEncrypt/des/10MiB-8           	       8	 142563058 ns/op	  73.55 MB/s	   39816 B/op	      61 allocs/op
+BenchmarkEncrypt/des/10MiB-8           	       8	 141597764 ns/op	  74.05 MB/s	   39816 B/op	      61 allocs/op
+BenchmarkEncrypt/des/10MiB-8           	       8	 140686861 ns/op	  74.53 MB/s	   39816 B/op	      61 allocs/op
+BenchmarkEncrypt/rc4/10MiB-8           	      31	  39199983 ns/op	 267.49 MB/s	   40272 B/op	      57 allocs/op
+BenchmarkEncrypt/rc4/10MiB-8           	      31	  36406872 ns/op	 288.02 MB/s	   40272 B/op	      57 allocs/op
+BenchmarkEncrypt/rc4/10MiB-8           	      34	  38819831 ns/op	 270.11 MB/s	   40272 B/op	      57 allocs/op
+BenchmarkDecrypt/aes/10MiB-8           	      75	  17023727 ns/op	 615.95 MB/s	   40896 B/op	      67 allocs/op
+BenchmarkDecrypt/aes/10MiB-8           	      75	  15721031 ns/op	 666.99 MB/s	   40896 B/op	      67 allocs/op
+BenchmarkDecrypt/aes/10MiB-8           	      80	  15110359 ns/op	 693.95 MB/s	   40896 B/op	      67 allocs/op
+BenchmarkDecrypt/des/10MiB-8           	       7	 142958106 ns/op	  73.35 MB/s	   40576 B/op	      69 allocs/op
+BenchmarkDecrypt/des/10MiB-8           	       8	 142458462 ns/op	  73.61 MB/s	   40576 B/op	      69 allocs/op
+BenchmarkDecrypt/des/10MiB-8           	       7	 144859529 ns/op	  72.39 MB/s	   40576 B/op	      69 allocs/op
+BenchmarkDecrypt/rc4/10MiB-8           	      28	  42361488 ns/op	 247.53 MB/s	   41024 B/op	      66 allocs/op
+BenchmarkDecrypt/rc4/10MiB-8           	      27	  45758278 ns/op	 229.16 MB/s	   41024 B/op	      66 allocs/op
+BenchmarkDecrypt/rc4/10MiB-8           	      24	  42777955 ns/op	 245.12 MB/s	   41024 B/op	      66 allocs/op

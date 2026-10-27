@@ -587,3 +587,67 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
   the user can retry, but the other copies may already be gone, and downloading them returns an error.
 - **The list decrypts every filename on each page load.** This is fine for tens of files per user; there is no
   pagination.
+
+## Benchmarks (`feature/benchmark`)
+
+### D34. One shared benchmark page, summarised in Go, filtered by time
+
+- **Decision:** `/benchmarks` shows every record, not only the logged-in user's. Records are grouped by operation,
+  data kind, size class (≤ 1 KiB, 1–64 KiB, 64 KiB–1 MiB, 1–16 MiB, 16–128 MiB, > 128 MiB) and algorithm. Each group
+  shows its run count, mean ± sample standard deviation and minimum crypto time, mean total time, and throughput
+  (total bytes over total time). The latest 100 raw records are listed below. `?since=<RFC 3339 time>` limits both
+  the page and the CSV export to one run; old records are never deleted. The export streams every matching record,
+  oldest first, with the header `created_at,algorithm,operation,file_kind,bytes,crypto_ns,total_ns`.
+- **Alternatives:** per-user records (would need a `user_id` on `Record`); a MongoDB aggregation pipeline; a "clear
+  all" button.
+- **Why:** the page is a measurement tool for the report, and records hold only an algorithm, operation, file kind,
+  size and timings, with no user, file id or name. The summary is computed in Go from a cursor
+  (`Summarizer`, constant memory per group), so the same code serves the page, the benchmark runner and the tests;
+  an aggregation pipeline could only be tested against a real MongoDB. Size classes stop a 1 KiB file and a 100 MiB
+  video from being averaged together. A time filter keeps every past run reproducible, where a delete button would
+  let one user wipe everyone's data.
+- **Trade-offs:** any logged-in user can see when others uploaded or downloaded files and roughly how large they
+  were. The page reads every matching record on each load; with tens of thousands of records, use `?since=`.
+
+### D35. Controlled runs: `scripts/bench` repeats uploads and downloads one file at a time
+
+- **Decision:** `go run ./scripts/bench` registers a throwaway account and does a warm-up. Then, for each size
+  (default 1 KiB, 64 KiB, 1 MiB, 16 MiB), it uploads a fake video `-uploads` times (default 5) and downloads it `-n`
+  times per algorithm (default 10), one request at a time, rotating which algorithm goes first in each round. Every
+  download is compared with the SHA-256 of what was uploaded. It saves `/benchmarks/export.csv?since=<start of run>`
+  and fails if the server did not record exactly the run's operations.
+- **Why:** the warm-up keeps connection set-up and cold caches out of the results. Repeating uploads gives encrypt
+  timings a mean and a spread; the first version uploaded each size once, and one sample per algorithm varied by up to
+  39% between two runs. The record-count check catches lost records and other clients using the app during the run.
+  The fake files are an MP4 header plus `crypto/rand` bytes, so the content cannot favour any cipher and no real data
+  is used.
+- **Upload contention is small but real.** The three encryptions of an upload run in parallel (D32). Comparing the
+  cipher time inside uploads with `go test -bench` encrypting alone (docs/benchmark/README.md): +2% to +5% on a 2-vCPU
+  VM (Intel Core Ultra 7 255HX), and +5% to +26% for DES and RC4 on a 4-core Ryzen 5 3550H (AES moved ±16% in both
+  directions, which is run-to-run noise at 11 ms). So encrypt records are usable for the cipher comparison, but
+  decrypt records, where one algorithm runs alone, are the cleaner one. What parallel encryption does change is the
+  **whole upload**, which waits for the slowest cipher (DES).
+- **Measured:** full results for both machines and all methods are in `docs/benchmark/README.md`. On the Ryzen, at 10
+  MiB, the app's decrypt cipher time (with MinIO and MongoDB running) is within 7% of `go test -bench` for AES and DES
+  and 26% slower for RC4. AES is fastest because Go uses the CPU's AES instructions; DES is slowest because it is a
+  64-bit block cipher implemented in software with 16 rounds per block. Absolute numbers depend on the machine and
+  even on the session (the same laptop measured 20–30% slower than 35 minutes earlier), so the report must
+  take all its numbers from one session and name the machine.
+
+### D36. Nested measurements share crypto time
+
+- **Decision:** `crypto.WithClock` links the new Clock to any Clock already in the context, and `Clock.Add` adds to
+  both. The download record (`OpDownload`, the whole request) contains the decrypt record (`OpDecrypt`), so both now
+  carry the same crypto time.
+- **Why:** before this, the inner `benchmark.Measure` replaced the clock, and every download record had a crypto time
+  of 0. Found by the first benchmark run.
+
+---
+
+## Known limitations (benchmarks)
+
+- **Upload encrypt times include some contention** between the three parallel encryptions: up to about +25% over
+  a cipher running alone (D35).
+- **Private-data crypto time is measured differently** from file crypto time (D22): it includes key generation and
+  wrapping. Compare files with files and fields with fields.
+- **Timings come from one machine and one run.** Report the mean ± standard deviation, the run count, and the hardware.

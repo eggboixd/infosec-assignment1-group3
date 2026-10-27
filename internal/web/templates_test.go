@@ -353,6 +353,20 @@ func TestBenchmarksTemplate(t *testing.T) {
 			mood: "smiling",
 			want: []string{"<table", "Crypto (ms)"},
 		},
+		{
+			name: "summary row",
+			page: "benchmarks.html",
+			data: map[string]any{
+				"Summary": benchmark.Summarize([]benchmark.Record{{Algorithm: crypto.RC4, Operation: benchmark.OpDecrypt, Bytes: 1 << 20, CryptoDuration: time.Second, TotalDuration: 2 * time.Second}}),
+				"Total":   benchmark.Stat{Count: 1, Bytes: 1 << 20},
+				"Since":   "2026-10-27T09:00:00Z",
+			},
+			mood: "sleepy",
+			want: []string{
+				"1 records, 1.0 MiB processed", ">RC4<", "private data", "64 KiB–1 MiB", "1000.000 ± 0.000", ">1.0<", ">0.5<",
+				`href="/benchmarks/export.csv?since=2026-10-27T09%3A00%3A00Z"`, `href="/benchmarks">Show all`,
+			},
+		},
 	})
 }
 
