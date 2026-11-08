@@ -8,7 +8,7 @@ The same measurements were taken on two machines. Machine A's files are in this 
 
 | Item | Machine A | Machine B |
 |---|---|---|
-| Host | Acer Predator Helios Neo 16S, Intel Core Ultra 7 255HX | Laptop, AMD Ryzen 5 3550H (4 cores, 8 threads, AES-NI) |
+| Host | Laptop, Intel Core Ultra 7 255HX | Laptop, AMD Ryzen 5 3550H (4 cores, 8 threads, AES-NI) |
 | Runtime | Linux VM on that laptop, 2 vCPUs, 3.9 GB RAM, kernel 6.8 | WSL2 on Windows, 8 logical CPUs, 6.7 GiB RAM, kernel 6.18; the app in Docker Desktop 26.0 |
 | Go | 1.27.1, linux/amd64 | 1.27.1, linux/amd64 |
 | Code | `main` at `dc24398` (24 October 2026) | `docs/benchmark-results` at `8a9c538` (`dc24398` plus the benchmark feature) and the runner's `-uploads` option |
