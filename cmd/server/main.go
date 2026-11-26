@@ -131,7 +131,8 @@ func run() error {
 		Features: []web.RouteRegistrar{
 			applications.NewHandler(applicationsSvc),
 			auth.NewHandler(authSvc, sessions).WithKeys(keySvc),
-			profile.NewHandler(profileSvc),
+			profile.NewHandler(profileSvc).WithKeys(keySvc),
+			keypair.NewHandler(keySvc),
 			files.NewHandler(filesSvc),
 			benchmark.NewHandler(benchStore),
 		},

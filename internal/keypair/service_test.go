@@ -18,9 +18,9 @@ const (
 	pwB = "another long password"
 )
 
-// useTestKeys makes s hand out the cached keys alternately (encryption gets
-// key 0 and signing key 1 when one EnsureKeys runs alone) and returns a
-// counter of how many keys it was asked for.
+// useTestKeys makes s hand out the cached keys in turn (the first user gets
+// keys 0 and 1, a second user keys 2 and 0, so no two users share a key for
+// the same purpose) and returns a counter of how many keys it was asked for.
 func useTestKeys(t *testing.T, s *Service) *atomic.Int64 {
 	t.Helper()
 	ks, err := testKeys()
@@ -30,7 +30,7 @@ func useTestKeys(t *testing.T, s *Service) *atomic.Int64 {
 	var n atomic.Int64
 	s.genKey = func() (*rsa.PrivateKey, error) {
 		i := n.Add(1) - 1
-		return ks[i%2], nil
+		return ks[i%int64(len(ks))], nil
 	}
 	return &n
 }

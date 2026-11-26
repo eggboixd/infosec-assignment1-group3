@@ -1,14 +1,17 @@
 package profile
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/crypto"
+	"github.com/eggboixd/infosec-assignment1-group3/internal/keypair"
 )
 
 // User-facing messages. They never include submitted values or internal
@@ -26,12 +29,26 @@ const (
 
 // Handler serves the profile page.
 type Handler struct {
-	svc *Service
+	svc  *Service
+	keys keyInfo // optional; nil leaves the "My keys" card empty
+}
+
+// keyInfo is what the profile page needs from internal/keypair: the public
+// description of the user's two key pairs.
+type keyInfo interface {
+	Info(ctx context.Context, userID bson.ObjectID) ([]keypair.Info, error)
 }
 
 // NewHandler returns a Handler for svc.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
+}
+
+// WithKeys makes the page show the user's key pairs from k. It returns h
+// for chaining.
+func (h *Handler) WithKeys(k keyInfo) *Handler {
+	h.keys = k
+	return h
 }
 
 // show handles GET /profile?alg=aes|des|rc4 (default aes): it decrypts the
@@ -122,15 +139,39 @@ func parseAlg(s string) (crypto.Algorithm, error) {
 }
 
 // render passes exactly the data profile.html and layout.html document:
-// .Title, .User, .Profile, .Alg and .Errors.
+// .Title, .User, .Profile, .Alg, .Errors, .Keys and .KeysUnavailable.
 func (h *Handler) render(c *gin.Context, status int, user *auth.User, data *PrivateData, alg crypto.Algorithm, errs []string) {
+	keys, keysErr := h.loadKeys(c, user)
 	c.HTML(status, profileTemplate, gin.H{
-		"Title":   profileTitle,
-		"User":    user,
-		"Profile": data,
-		"Alg":     string(alg),
-		"Errors":  errs,
+		"Title":           profileTitle,
+		"User":            user,
+		"Profile":         data,
+		"Alg":             string(alg),
+		"Errors":          errs,
+		"Keys":            keys,
+		"KeysUnavailable": keysErr,
 	})
+}
+
+// loadKeys returns the user's key pairs for the "My keys" card. Having no
+// keys yet is not an error. Any other failure only marks the card as
+// unavailable: the applicant data must still be shown.
+func (h *Handler) loadKeys(c *gin.Context, user *auth.User) ([]keypair.Info, bool) {
+	if h.keys == nil {
+		return nil, false
+	}
+	keys, err := h.keys.Info(c.Request.Context(), user.ID)
+	switch {
+	case err == nil:
+		return keys, false
+	case errors.Is(err, keypair.ErrNoKeys):
+		return nil, false
+	case errors.Is(err, keypair.ErrCorrupt):
+		slog.Warn("profile: key pair integrity check failed", "user_id", user.ID.Hex(), "error", err)
+	default:
+		slog.Error("profile: load key pairs", "user_id", user.ID.Hex(), "error", err)
+	}
+	return nil, true
 }
 
 // renderError shows error.html with a fixed, user-facing message.

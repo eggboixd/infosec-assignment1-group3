@@ -15,6 +15,7 @@ import (
 	"github.com/eggboixd/infosec-assignment1-group3/internal/benchmark"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/crypto"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/files"
+	"github.com/eggboixd/infosec-assignment1-group3/internal/keypair"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
 )
 
@@ -442,7 +443,42 @@ func TestProfileTemplate(t *testing.T) {
 			data: map[string]any{},
 			want: []string{`method="post" action="/profile"`, `data-gembi-busy="Encrypting…"`},
 		},
+		{
+			name: "my keys: both pairs with fingerprint, date and PEM link",
+			page: "profile.html",
+			data: map[string]any{"Keys": testKeys},
+			want: []string{
+				"<h2 id=\"keys-title\">My keys</h2>",
+				">Encryption</td>", "RSA-3072, OAEP-SHA256", "<code>ba78 16bf 8f01</code>", `href="/keys/encryption/public.pem" download`,
+				">Signing</td>", "<code>1a2b 3c4d</code>", `href="/keys/signing/public.pem" download`,
+				`datetime="2026-11-26T10:00:00Z">26 Nov 2026, 10:00</time>`,
+				"cannot be recovered",
+			},
+			count:   map[string]int{`<td data-label="Algorithm">RSA-3072`: 2, "OAEP-SHA256": 1, "Download PEM": 2},
+			notWant: []string{"You don't have key pairs yet", "couldn't be loaded"},
+		},
+		{
+			name:    "my keys: none yet",
+			page:    "profile.html",
+			data:    map[string]any{},
+			want:    []string{"My keys", "You don't have key pairs yet. They are created the next time you log in."},
+			notWant: []string{"Download PEM", "couldn't be loaded"},
+		},
+		{
+			name:    "my keys: unavailable",
+			page:    "profile.html",
+			data:    map[string]any{"KeysUnavailable": true, "Keys": testKeys},
+			want:    []string{`<p role="alert">Your keys couldn't be loaded right now.`},
+			notWant: []string{"Download PEM", "You don't have key pairs yet"},
+		},
 	})
+}
+
+// testKeys is what keypair.Service.Info returns; the fingerprints are
+// shortened, the page shows whatever string it gets.
+var testKeys = []keypair.Info{
+	{Purpose: keypair.Encryption, Bits: 3072, Fingerprint: "ba78 16bf 8f01", CreatedAt: time.Date(2026, 11, 26, 10, 0, 0, 0, time.UTC)},
+	{Purpose: keypair.Signing, Bits: 3072, Fingerprint: "1a2b 3c4d", CreatedAt: time.Date(2026, 11, 26, 10, 0, 0, 0, time.UTC)},
 }
 
 func TestBenchmarksTemplate(t *testing.T) {
@@ -530,6 +566,7 @@ func TestTemplatesAreCSPSafe(t *testing.T) {
 		"Slots":        files.BuildChecklist(testFiles).Slots,
 		"JustLoggedIn": true,
 		"Profile":      &profile.PrivateData{FullName: "Test Person"},
+		"Keys":         testKeys,
 		"Alg":          crypto.AES,
 		"Records":      []benchmark.Record{{}},
 		"Status":       404,

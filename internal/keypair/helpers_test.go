@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-// testKeys are two real RSA-3072 keys, generated once per test binary.
+// testKeys are three real RSA-3072 keys, generated once per test binary.
 // Generating a 3072-bit key takes up to a few seconds under the race
 // detector, so tests share these instead of making new ones every time.
 // TestEnsureKeysGeneratesRSA3072 still runs the real generator.
-var testKeys = sync.OnceValues(func() ([2]*rsa.PrivateKey, error) {
-	var ks [2]*rsa.PrivateKey
+var testKeys = sync.OnceValues(func() ([3]*rsa.PrivateKey, error) {
+	var ks [3]*rsa.PrivateKey
 	for i := range ks {
 		k, err := rsa.GenerateKey(rand.Reader, KeyBits)
 		if err != nil {
@@ -23,7 +23,7 @@ var testKeys = sync.OnceValues(func() ([2]*rsa.PrivateKey, error) {
 	return ks, nil
 })
 
-// testKey returns cached key i (0 or 1).
+// testKey returns cached key i (0, 1 or 2).
 func testKey(t *testing.T, i int) *rsa.PrivateKey {
 	t.Helper()
 	ks, err := testKeys()
