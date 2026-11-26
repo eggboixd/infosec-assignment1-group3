@@ -2,14 +2,18 @@ package auth_test
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/web"
@@ -40,14 +44,24 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
+	return newFixtureWithKeys(t, nil)
+}
+
+// newFixtureWithKeys is newFixture with keys passed to Handler.WithKeys.
+func newFixtureWithKeys(t *testing.T, keys auth.KeyEnsurer) *fixture {
+	t.Helper()
 	auth.UseFastHashes(t)
 	users, sessions := auth.NewMemUsers(), auth.NewMemSessions()
 	mgr := auth.NewSessionManager(sessions, []byte("0123456789abcdef0123456789abcdef"), false)
+	h := auth.NewHandler(auth.NewService(users), mgr)
+	if keys != nil {
+		h.WithKeys(keys)
+	}
 	engine, err := web.NewEngine(web.Options{
 		Mode:         gin.TestMode,
 		MaxBodyBytes: 1 << 20,
 		Session:      auth.LoadSession(mgr),
-		Features:     []web.RouteRegistrar{auth.NewHandler(auth.NewService(users), mgr), whoami{}},
+		Features:     []web.RouteRegistrar{h, whoami{}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -311,5 +325,82 @@ func TestNothingSecretInLogs(t *testing.T) {
 		if strings.Contains(logs, secret) {
 			t.Errorf("logs contain a secret: %q", secret)
 		}
+	}
+}
+
+// fakeKeys records EnsureKeys calls and can fail them.
+type fakeKeys struct {
+	mu    sync.Mutex
+	calls []keyCall
+	err   error
+}
+
+type keyCall struct {
+	userID   bson.ObjectID
+	password string
+}
+
+func (k *fakeKeys) EnsureKeys(_ context.Context, userID bson.ObjectID, password string) error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.calls = append(k.calls, keyCall{userID, password})
+	return k.err
+}
+
+func (k *fakeKeys) Calls() []keyCall {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return append([]keyCall(nil), k.calls...)
+}
+
+// Register and every successful login hand the user's ID and password to
+// the key ensurer, so new users get key pairs at once and existing users at
+// their next login (D43). Failed attempts never reach it.
+func TestRegisterAndLoginEnsureKeys(t *testing.T) {
+	keys := &fakeKeys{}
+	f := newFixtureWithKeys(t, keys)
+
+	expectRedirect(t, f.register("budi", password, password), "/login")
+	u, _ := f.users.Get("budi")
+	if got := keys.Calls(); len(got) != 1 || got[0] != (keyCall{u.ID, password}) {
+		t.Fatalf("after register: calls = %+v, want one for %s", got, u.ID.Hex())
+	}
+
+	f.login("budi", "wrong-password-here")
+	f.login("nobody", password)
+	f.register("budi", password, password) // username taken
+	if n := len(keys.Calls()); n != 1 {
+		t.Fatalf("failed attempts called EnsureKeys: %d calls, want 1", n)
+	}
+
+	expectRedirect(t, f.login("BUDI", password), "/")
+	if got := keys.Calls(); len(got) != 2 || got[1] != (keyCall{u.ID, password}) {
+		t.Fatalf("after login: calls = %+v", got)
+	}
+}
+
+// Key generation failing must not lock anyone out: login still succeeds and
+// the error is logged without the password.
+func TestLoginSucceedsWhenKeyCreationFails(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	f := newFixtureWithKeys(t, &fakeKeys{err: errors.New("mongo down")})
+	expectRedirect(t, f.register("budi", password, password), "/login")
+	expectRedirect(t, f.login("budi", password), "/")
+	if _, ok := f.cookies[auth.SessionCookieName]; !ok {
+		t.Fatal("no session after login")
+	}
+	if who := f.do(http.MethodGet, "/whoami", nil); who.Code != http.StatusOK {
+		t.Errorf("/whoami = %d, want 200", who.Code)
+	}
+	logs := buf.String()
+	if !strings.Contains(logs, "auth: ensure key pairs") || !strings.Contains(logs, "mongo down") {
+		t.Errorf("key failure not logged: %q", logs)
+	}
+	if strings.Contains(logs, password) {
+		t.Error("logs contain the password")
 	}
 }

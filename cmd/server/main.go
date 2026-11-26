@@ -17,6 +17,7 @@ import (
 	"github.com/eggboixd/infosec-assignment1-group3/internal/config"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/crypto"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/files"
+	"github.com/eggboixd/infosec-assignment1-group3/internal/keypair"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/platform/minio"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/platform/mongodb"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
@@ -98,8 +99,20 @@ func run() error {
 		return err
 	}
 
+	// Authenticates users' public keys (D42). It can't unlock private keys:
+	// those are encrypted under a key derived from each user's password.
+	keypairMACKey, err := crypto.DeriveKey(cfg.MasterKey, "keypair-public-mac")
+	if err != nil {
+		return err
+	}
+
 	db := mongo.Database()
 	benchStore := benchmark.NewStore(db.Collection(mongodb.BenchmarksCollection))
+
+	keySvc, err := keypair.NewService(keypair.NewStore(db.Collection(mongodb.KeypairsCollection)), keypairMACKey)
+	if err != nil {
+		return err
+	}
 
 	authSvc := auth.NewService(auth.NewStore(db.Collection(mongodb.UsersCollection)))
 	sessions := auth.NewSessionManager(auth.NewSessionStore(db.Collection(mongodb.SessionsCollection)), cfg.SessionSecret, cfg.CookieSecure)
@@ -117,7 +130,7 @@ func run() error {
 		Session: auth.LoadSession(sessions),
 		Features: []web.RouteRegistrar{
 			applications.NewHandler(applicationsSvc),
-			auth.NewHandler(authSvc, sessions),
+			auth.NewHandler(authSvc, sessions).WithKeys(keySvc),
 			profile.NewHandler(profileSvc),
 			files.NewHandler(filesSvc),
 			benchmark.NewHandler(benchStore),
