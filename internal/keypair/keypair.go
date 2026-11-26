@@ -56,7 +56,7 @@ var (
 
 	// ErrUnlock means the private key could not be decrypted: either the
 	// password is wrong or the encrypted key was modified. AES-GCM cannot
-	// tell these apart (both are a tag mismatch), so neither can we (D43).
+	// tell these apart (both are a tag mismatch), so neither can we (D44).
 	// Show the user "wrong password".
 	ErrUnlock = errors.New("keypair: wrong password or damaged private key")
 

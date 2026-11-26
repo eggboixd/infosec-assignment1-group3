@@ -61,6 +61,7 @@ minute returns 429; wait 60 seconds.
 | POST | `/logout` | yes | 303 → `/login`, clears `session` | — |
 | GET | `/profile?alg=aes\|des\|rc4` | yes | 200 | HTML |
 | POST | `/profile` | yes | 303 → `/profile?alg=aes` | — |
+| GET | `/keys/encryption\|signing/public.pem` | yes | 200 | PEM public key (attachment) |
 | GET | `/files` | yes | 200 | HTML |
 | POST | `/files` | yes | 303 → `/files` | — |
 | GET | `/files/:id/download?alg=aes\|des\|rc4` | yes | 200 | the file |
@@ -78,7 +79,7 @@ Every protected route, for any method, answers a request without a valid `sessio
 
 | Case | Request | Expect |
 |---|---|---|
-| No cookie | `GET /files`, `GET /profile`, `GET /benchmarks`, `GET /benchmarks/export.csv`, `POST /files`, `DELETE /files/{{fileId}}`, `POST /scholarships/bakti-keluarga/apply`, `POST /logout` | 303, `Location: /login` |
+| No cookie | `GET /files`, `GET /profile`, `GET /benchmarks`, `GET /benchmarks/export.csv`, `POST /files`, `DELETE /files/{{fileId}}`, `POST /scholarships/bakti-keluarga/apply`, `GET /keys/signing/public.pem`, `POST /logout` | 303, `Location: /login` |
 | Bad cookie | any of the above with `Cookie: session=AAAA` | 303, `Location: /login` |
 
 ### 3.2 CSRF protection
@@ -343,6 +344,25 @@ The two scholarships are `prestasi-nusantara` (merit) and `bakti-keluarga` (need
 | Foreign origin | the submit `POST` with `Origin: https://evil.example` | **403** (§3.2) |
 | Tampered application | flip a byte of a stored application (§5.6), then `GET /` | **422**, `integrity check` |
 
+### 4.8 Key pairs — `/keys`
+
+Every user gets two RSA-3072 key pairs, one for encryption and one for signing, at registration or, for accounts made
+before this feature, at their next login (docs/decisions.md D39–D44, [docs/keypairs.md](keypairs.md)). The profile
+page shows both in a "My keys" card.
+
+| Case | Request | Expect |
+|---|---|---|
+| Keys after register | register, log in, `GET /profile` | 200, `My keys`, two fingerprints, two `Download PEM` links |
+| Existing account | log in with an account made before this branch, `GET /profile` | 200, two fingerprints (created by the login) |
+| Encryption public key | `GET /keys/encryption/public.pem` | 200, `Content-Type: application/x-pem-file`, `Content-Disposition: attachment; filename=securestore-<user>-encryption-public.pem`, `Cache-Control: no-store`, body `-----BEGIN PUBLIC KEY-----` |
+| Signing public key | `GET /keys/signing/public.pem` | 200, a different key |
+| Fingerprint matches | SHA-256 of the DER inside the PEM | equals the fingerprint on the profile page (without spaces) |
+| Unknown purpose | `GET /keys/admin/public.pem` | **404** |
+| No private-key route | `GET /keys/signing/private.pem` | **404** |
+| Another user | log in as a second user, same URLs | 200, that user's own keys (different fingerprints) |
+| Log in again | log out and in again | same fingerprints (keys are created once) |
+| Tampered public key | flip a byte of `encryption.public_der` (§5.7), then `GET /keys/encryption/public.pem` | **422**, `integrity check`; the profile page still shows the applicant data with `couldn't be loaded` |
+
 ## 5. Checking the encryption
 
 MongoDB and MinIO are not exposed on the host. The commands below run inside their containers from the repository
@@ -446,3 +466,27 @@ the AES copy, then open `/` as that student (422):
 M 'const a=db.applications.findOne(); const b=Buffer.from(a.scholarship.aes.ct.buffer); b[b.length-1]^=1; db.applications.updateOne({_id:a._id},{$set:{"scholarship.aes.ct":BinData(0,b.toString("base64"))}})'
 ```
 
+### 5.7 Private keys are stored encrypted under the user's password
+
+```bash
+M 'printjson(db.keypairs.findOne({}, {"encryption.wrapped_private": 0, "signing.wrapped_private": 0}))'
+```
+
+Expect one document per user with `kdf` (`alg: "argon2id"`, `v: 19`, `t: 3`, `m: 65536`, `p: 2` and a 16-byte `salt`,
+which differs from the salt in that user's `password_hash`), and `encryption` and `signing`, each with `public_der`,
+a 32-byte `fingerprint`, `public_mac` and `created_at`. `wrapped_private` is the PKCS#8 private key under AES-256-GCM:
+a random 12-byte nonce, the encrypted key and a 16-byte tag, so 28 bytes longer than the key. A plaintext PKCS#8 key
+would start with the DER bytes `30 82`; the stored blob starts with random bytes, different for every user.
+Nothing in the document can be unlocked with `MASTER_KEY`; the KEK comes from the user's password
+(docs/decisions.md D40).
+
+```bash
+M 'db.keypairs.find().forEach(d => print(d.user_id, Buffer.from(d.signing.wrapped_private.buffer).subarray(0,4).toString("hex"), d.signing.wrapped_private.length()))'
+M 'print(db.keypairs.countDocuments() === db.users.countDocuments())'   # true once every user has logged in
+```
+
+To check tampering, flip a byte of a public key, then download it (422):
+
+```bash
+M 'const d=db.keypairs.findOne(); const b=Buffer.from(d.encryption.public_der.buffer); b[40]^=1; db.keypairs.updateOne({_id:d._id},{$set:{"encryption.public_der":BinData(0,b.toString("base64"))}})'
+```
