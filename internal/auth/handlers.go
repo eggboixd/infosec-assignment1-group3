@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 // User-facing messages. They never include the submitted password.
@@ -46,6 +48,15 @@ type loginForm struct {
 	Password string `form:"password" binding:"required,max=128"`
 }
 
+// KeyEnsurer creates a user's key pairs if they have none
+// (internal/keypair). Their private keys are encrypted under the user's
+// password, and register and login are the only moments the server holds
+// it, so the handler calls this right after either succeeds
+// (docs/decisions.md D43).
+type KeyEnsurer interface {
+	EnsureKeys(ctx context.Context, userID bson.ObjectID, password string) error
+}
+
 // Handler serves the auth pages. It only parses input, calls the Service
 // and the SessionManager, and writes responses.
 type Handler struct {
@@ -53,6 +64,7 @@ type Handler struct {
 	sessions      *SessionManager
 	loginLimit    *rateLimiter
 	registerLimit *rateLimiter
+	keys          KeyEnsurer // optional; nil skips key creation
 }
 
 // NewHandler returns a Handler for svc and sessions.
@@ -62,6 +74,25 @@ func NewHandler(svc *Service, sessions *SessionManager) *Handler {
 		sessions:      sessions,
 		loginLimit:    newRateLimiter(loginAttemptsPerMinute, time.Minute),
 		registerLimit: newRateLimiter(registerAttemptsPerMinute, time.Minute),
+	}
+}
+
+// WithKeys makes a successful register or login also create the user's key
+// pairs when they have none. It returns h for chaining.
+func (h *Handler) WithKeys(k KeyEnsurer) *Handler {
+	h.keys = k
+	return h
+}
+
+// ensureKeys runs the KeyEnsurer, if any. A failure is logged and ignored:
+// logging in does not need the keys, and the next login tries again. Only
+// the user ID and the error are logged, never the password.
+func (h *Handler) ensureKeys(ctx context.Context, userID bson.ObjectID, password string) {
+	if h.keys == nil {
+		return
+	}
+	if err := h.keys.EnsureKeys(ctx, userID, password); err != nil {
+		slog.Error("auth: ensure key pairs", "user_id", userID.Hex(), "error", err)
 	}
 }
 
@@ -87,6 +118,7 @@ func (h *Handler) register(c *gin.Context) {
 	switch {
 	case err == nil:
 		slog.Info("auth: registered", "user_id", u.ID.Hex())
+		h.ensureKeys(c.Request.Context(), u.ID, f.Password)
 		setFlash(c.Writer, flashRegistered, h.sessions.Secure())
 		c.Redirect(http.StatusSeeOther, "/login")
 	case errors.Is(err, ErrUsernameTaken):
@@ -171,6 +203,7 @@ func (h *Handler) login(c *gin.Context) {
 		return
 	}
 	slog.Info("auth: logged in", "user_id", u.ID.Hex())
+	h.ensureKeys(ctx, u.ID, f.Password)
 	c.Redirect(http.StatusSeeOther, homePath)
 }
 

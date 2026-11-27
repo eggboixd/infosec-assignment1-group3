@@ -37,6 +37,13 @@ flowchart LR
 | MAC key | One algorithm × one file or field | Wrapped with the KEK in `Meta.WrappedMACKey` |
 | IV | One algorithm × one file or field | Plaintext in `Meta.IV` (16 B AES, 8 B DES, none for RC4) |
 | NIK blind-index key | Whole deployment | Derived from the KEK with HKDF, never stored |
+| RSA-3072 public keys (encryption, signing) | One user, one purpose | `keypairs` collection as PKIX DER, with a SHA-256 fingerprint and an HMAC (D42) |
+| Public-key MAC key | Whole deployment | Derived from the KEK with HKDF (`"keypair-public-mac"`), never stored |
+| RSA-3072 private keys (encryption, signing) | One user, one purpose | `keypairs` collection as PKCS#8 DER under AES-256-GCM, wrapped with the user's password KEK, **not** the master key (D40) |
+| Password KEK | One user | Argon2id(password, own salt) each time it is needed, never stored (D41) |
+
+Private keys are only decrypted inside `keypair.Service.Unlock`, for one action, after the user re-enters their
+password. They are never put in a session, a cookie, a log or the database. See [keypairs.md](keypairs.md).
 
 ## Upload flow
 

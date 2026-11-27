@@ -515,7 +515,8 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
 ## Known limitations (auth)
 
 - **No password change or reset.** Changing a password would be a protected form that verifies the old password and
-  stores a new hash; a reset needs a verified email address, which accounts don't have.
+  stores a new hash; a reset needs a verified email address, which accounts don't have. A password change must also call
+  `keypair.Service.Rewrap`, or the user's private keys stay locked under the old password (D44).
 - **Sessions aren't revoked when an account changes.** There is no account deletion or password change yet; when one
   is added, it should delete that user's sessions (`sessions.deleteMany({user_id})`).
 - **No multi-factor authentication.**
@@ -694,3 +695,200 @@ Format: **Decision** · Alternatives · Why · Trade-offs (where relevant).
 - **No reviewer side.** There is no admin, review or acceptance workflow, and a student cannot withdraw an application.
 - **Documents are shared, not frozen.** Both scholarships use the same documents, and a student can still replace them
   after submitting; the application records only which scholarship and when.
+
+---
+
+## Key pairs (`feature/keypairs`)
+
+Foundation for Assignment 2 (sharing: the owner encrypts a share key with the requester's public key, RSA-OAEP-SHA256)
+and Assignment 3 (signing uploaded PDFs). This branch only creates, stores and unlocks keys; it neither shares nor
+signs. How teammates call it: [keypairs.md](keypairs.md).
+
+### D39. Two RSA-3072 key pairs per user, one per purpose
+
+- **Decision:** every user gets two independent key pairs from `rsa.GenerateKey(crypto/rand, 3072)` (e = 65537): an
+  **encryption** pair (others encrypt share keys to it) and a **signing** pair. Public keys are stored as PKIX
+  (SubjectPublicKeyInfo) DER, private keys as PKCS#8 DER (encrypted, D40–D41).
+- **Alternatives:**
+  - *One pair for both purposes.*
+  - *RSA-2048 or RSA-4096.*
+  - *Elliptic curves (ECDSA/Ed25519, X25519).*
+  - *PKCS#1 encoding* (`RSA PUBLIC KEY` / `RSA PRIVATE KEY`).
+- **Why:**
+  - *Two pairs:* NIST SP 800-57 Part 1 §5.2 says a key should be used for one purpose only. With one RSA key for
+    both, decrypting and signing are the same private-key operation (m^d mod n), so a bug or a careless API in one
+    feature (for example, "decrypt this value for me") could produce a signature on data the user never signed. With
+    separate keys, a problem in sharing can't forge a signature and vice versa. It also lets the two be handled
+    differently later (a lost encryption key and a lost signing key have different consequences).
+  - *3072 bits:* SP 800-57 Part 1 Table 2 rates RSA-2048 at 112-bit security (acceptable only until 2030) and
+    RSA-3072 at 128 bits, the same level as AES-128 and the level recommended beyond 2030. RSA-4096 isn't in that
+    table; common estimates put it only around 140 bits, for much slower key generation and private-key operations.
+  - *RSA, not curves:* the A2 design names RSA-OAEP for sharing, and Assignment 3 requires our own signing logic
+    on top of library primitives. With RSA, that logic is hashing, padding and one modular exponentiation, which
+    `math/big` provides; with ECDSA we would also have to hand-write curve arithmetic.
+  - *PKIX and PKCS#8:* they record the algorithm inside the bytes, are what `x509.MarshalPKIXPublicKey` and
+    `MarshalPKCS8PrivateKey` produce, and are what OpenSSL and most tools read as `PUBLIC KEY` / `PRIVATE KEY`.
+- **Trade-offs:** generating one 3072-bit key took 0.17–1.6 s (mean 0.67 s, 10 runs) on the developer's Windows
+  laptop, because it searches for random primes. Two keys are made once per user, at the first register or login.
+  Key generation is one of the uses the assignment allows a library for, so we call `crypto/rsa` directly.
+
+### D40. Private keys are encrypted under a key derived from the user's password, not the master key
+
+- **Decision:** each user's private keys are encrypted (AES-256-GCM, D41) under a key-encryption key (KEK) derived
+  from **their password** with Argon2id. The KEK is recomputed when needed and never stored.
+- **Alternatives:**
+  1. *Wrap them under `MASTER_KEY`*, like every file and field key (D2).
+  2. *Browser-held keys:* generate and keep the private keys in the browser (WebCrypto), so the server never sees
+     them.
+- **Why not (1):** whoever has `MASTER_KEY` and a copy of the database (a server admin, or anyone who gets the
+  `.env` and a backup) could unlock every private key and **sign as any user** or read any share key. A signature
+  would then prove "the server signed this", not "this user signed this", which defeats the point of Assignment 3.
+- **Why not (2):** it is the strongest model on paper, but:
+  - the key is lost when the browser storage is cleared or the user switches devices;
+  - our own signing logic (Assignment 3) would have to be rewritten in JavaScript, which this app has none of
+    beyond small UI helpers;
+  - the server delivers that JavaScript, so a malicious server could still serve code that steals the key;
+  - the brief says *the app* generates a key pair when the user has none.
+- **Why the password-derived KEK:** to use someone's private key, an attacker needs the database **and** that user's
+  password. `MASTER_KEY` and the database together are not enough. Guessing the password from a stolen `keypairs`
+  document costs one 64 MiB Argon2id run per guess, the same as attacking the password hash.
+- **Why this differs from D2:** D2 rejected password-derived keys for *files and fields*, because a password reset
+  would lose the data and background work (benchmarks, an export) needs the data without the user present. Neither
+  applies here: nothing should ever sign or decrypt a share key on a user's behalf while they are away. Needing the
+  user is the point.
+- **Trade-offs and limits (say these to the TA):**
+  - It protects against a stolen backup, a leaked `.env`, or a curious admin reading the database. It does **not**
+    protect against someone who changes the running server: they could record the password the next time the user
+    types it. Only browser-held keys (2) defend against that.
+  - A forgotten password means the private keys are lost (D44).
+  - Every action that needs a private key must ask for the password again (D44).
+
+### D41. Argon2id KEK with its own salt; AES-256-GCM with associated data
+
+- **Decision:**
+  - KEK = `argon2.IDKey(password, salt, t=3, m=64 MiB, p=2, 32 bytes)`, the same cost as the password hash (D26), with
+    a **separate** 16-byte `crypto/rand` salt stored in the `keypairs` document as `kdf`. The parameters are stored
+    with the salt, like a PHC string, so the cost can be raised later. Stored parameters are bounds-checked (the same
+    limits as `auth.parseHash`) before Argon2id runs.
+  - Each PKCS#8 key is encrypted with AES-256-GCM (`cipher.NewGCMWithRandomNonce`, as in D10): nonce (12 B) ‖
+    ciphertext ‖ tag (16 B). One KEK per user encrypts both keys.
+  - The GCM **associated data** is the length-prefixed (D8 encoding) `"securestore/keypair/v1"` ‖ user ID ‖ purpose ‖
+    public-key fingerprint.
+- **Alternatives:** reuse the password hash's salt; PBKDF2 or scrypt; `crypto.WrapKey` (D10); CTR + HMAC like the
+  data (D7); no associated data; a separate KEK per key.
+- **Why:**
+  - *Its own salt:* the password hash is also Argon2id of the password. With the same salt and parameters the KEK
+    would be **byte-for-byte the hash stored in `users.password_hash`**, so the database would contain the key to
+    every private key. A different random salt makes the two outputs unrelated (`TestDeriveKEK`).
+  - *Argon2id:* the reasons of D26 (memory-hard, RFC 9106, OWASP). Using the same cost means the private keys are
+    exactly as hard to attack offline as the login, and there is one set of parameters to defend.
+  - *GCM:* authenticated encryption from the standard library, so a modified blob fails instead of decrypting to a
+    wrong key. `crypto.WrapKey` can't be reused: it derives its key from `MASTER_KEY` and takes no associated data.
+  - *Associated data:* GCM checks it without encrypting it. A blob copied to another account, swapped between the
+    encryption and signing slots, or left next to a replaced public key fails to open
+    (`TestUnwrapRejectsOtherContext`, `TestUnlockDetectsTampering`). The fingerprint also ties each private key to
+    the public key everyone else sees; `Unlock` additionally checks `priv.PublicKey.Equal(pub)`.
+  - *One KEK for both keys:* one Argon2id run per action. The associated data already separates the two blobs, and a
+    random 96-bit nonce is safe for 2^32 encryptions under one key; we make two per password.
+- **Trade-offs:** Argon2id costs 64 MiB per run. The keypair service has its own 2 slots (auth has 4), so the worst
+  case for both is 6 × 64 MiB = 384 MiB.
+
+### D42. Public keys are stored with a fingerprint and authenticated with an HMAC
+
+- **Decision:** each pair stores `public_der`, `fingerprint` = SHA-256(`public_der`), `created_at` (millisecond
+  precision, as MongoDB stores dates) and `public_mac` = HMAC-SHA256 under
+  `DeriveKey(MASTER_KEY, "keypair-public-mac")` (D11) over the length-prefixed label, user ID, purpose, DER,
+  fingerprint and `created_at`. `PublicKey`, `Info` and `Unlock` verify it before using anything. The logged-in user
+  can download their own public keys as PEM at `/keys/encryption|signing/public.pem`; there is no route for private
+  keys.
+- **Alternatives:** store the public key without integrity protection; protect it only with the associated data of
+  D41; certificates signed by an in-app CA.
+- **Why:**
+  - `PublicKey()` is called *without* the key owner's password: Assignment 2 encrypts a share key with the
+    *requester's* encryption key. If someone who can write to MongoDB replaced that public key with their own, the
+    owner would encrypt the secret for the attacker. D41's associated data is only checked when the *owner* unlocks,
+    which is too late. The HMAC catches the swap at lookup time, following D2's rule that the database alone is not
+    enough.
+  - The user ID and purpose in the MAC stop a valid pair being moved to another account or slot; `created_at` in the
+    MAC stops the date shown being changed.
+  - The `MASTER_KEY` subkey only **authenticates** public keys; it can't decrypt a private key.
+  - The fingerprint is a short, comparable identity for a key. Users can read it out over WhatsApp to check they
+    have the right key, and it is what D41 binds the private key to. It is plain SHA-256 of the DER, so
+    `sha256sum` of the decoded PEM gives the same value.
+  - A CA with certificates would be the "real-world" answer but adds X.509 issuing and revocation, which is outside
+    the assignment.
+- **Trade-offs:** someone with `MASTER_KEY` **and** database write access can replace a public key and recompute the
+  MAC. The server is the trusted directory of public keys, like a CA. Users who compare fingerprints out of band
+  (the share key goes over WhatsApp/email anyway) can detect this.
+
+### D43. Keys are created right after register and login (`EnsureKeys`), idempotently
+
+- **Decision:** `keypair.Service.EnsureKeys(ctx, userID, password)` creates both pairs if the user has none, and
+  otherwise does nothing (without even checking the password). `auth.Handler` calls it through a small `KeyEnsurer`
+  interface, set with `WithKeys`, after a successful `Register` and after a successful `Login`. All key pairs of a
+  user are one `keypairs` document with a unique index on `user_id`. If `EnsureKeys` fails, the error is logged
+  (user ID and error only) and the login continues.
+- **Alternatives:** generate keys in `auth.Service.Register` only; a "Generate my keys" button; a migration job for
+  existing users; fail the login when key creation fails.
+- **Why:**
+  - Register and login are the **only** moments the server has the plaintext password, which D40 needs. A migration
+    job can't create keys for existing users, because it has no passwords; with the login hook, existing accounts get
+    keys at their next login, which is the brief's "if the user has no key pair, the app generates one".
+  - *Idempotent:* logging in a hundred times leaves the same keys. After the first time, the check is one MongoDB
+    lookup with no Argon2id.
+  - *Race-safe:* two simultaneous first logins can both generate keys, but the unique index accepts only one insert;
+    the other gets a duplicate-key error, which `EnsureKeys` treats as success (`TestEnsureKeysConcurrent`).
+  - *Don't block the login:* logging in doesn't need the keys, and the next login retries. Locking a user out because
+    MongoDB hiccuped during key generation would be worse than a delay in getting keys.
+  - *Smallest change to `auth`:* an interface, a field, a setter and two calls, all added; no existing line changed.
+    `NewHandler`'s signature and every existing test stay as they were. `auth` doesn't import `keypair`.
+- **Trade-offs:** the first login after this feature takes about 1–3 s longer (two key generations, D39, plus one
+  Argon2id). Registration does the same work, but behind its 5-per-minute rate limit (D29).
+
+### D44. Unlock asks for the password every time; forgotten password = lost keys; `Rewrap` for password changes
+
+- **Decision:**
+  - `Unlock(ctx, userID, password, purpose)` returns the `*rsa.PrivateKey` for one action. Callers (sharing,
+    signing) ask the user for their password again. The decrypted key and the KEK are never put in a session, cookie,
+    log or the database, and are cleared (best effort, D13) after use.
+  - A wrong password and a modified encrypted key both return `ErrUnlock`. Public-part failures return `ErrCorrupt`.
+  - `Rewrap(ctx, userID, old, new)` re-encrypts both keys under a new password with a fresh salt; the key pairs and
+    fingerprints stay the same. It is written only if the stored salt is still the one it read, so of two concurrent
+    password changes only one wins.
+- **Alternatives:** cache the unlocked key or the KEK in the session for its 8 hours; keep a recovery copy wrapped
+  under `MASTER_KEY`; a "check value" to tell a wrong password from a tampered key.
+- **Why:**
+  - *No caching:* sessions are stored in MongoDB (D27), so a cached KEK would sit next to the encrypted keys, which is
+    D40's rejected option (1) again. Caching in server memory would expose every logged-in user's key to a memory
+    dump for hours. Re-typing a password costs one Argon2id run (about 0.1 s) per action, and it also confirms that
+    *the user* wants to sign or decrypt now.
+  - *One error:* GCM can't tell a wrong key from modified data; both are a tag mismatch. A separate check value would
+    give an attacker nothing new (it is as good a guessing target as the blob), so it isn't worth adding. The UI
+    should say "wrong password". Unlock attempts are an online password guess, so the sharing and signing branches
+    should rate-limit them like logins (D29).
+  - *No recovery copy:* any copy the server can open without the password brings back D40's option (1).
+- **Forgotten password = lost keys:** nobody, including the admin, can recover a key that only the user's password
+  unlocks. This is the accepted price of D40. Old signatures can still be **verified**, because the public keys stay
+  in the database; the user just can't make new signatures or open share keys encrypted to the old key. A future
+  "reset password" would therefore have to give the user new key pairs and keep the old public keys for
+  verification.
+- **Change password:** this app has none yet (see "Known limitations (auth)"). Whoever adds one must call `Rewrap`
+  with the old and new password **before** storing the new password hash, in the same request; otherwise the keys
+  stay locked under a password the user no longer has.
+
+---
+
+## Known limitations (key pairs)
+
+- **No protection against a modified running server.** It could capture passwords as they are typed (D40).
+- **A forgotten password loses the private keys** (D44). There is no password reset yet, and a future one must
+  issue new key pairs.
+- **No change-password flow yet.** `Rewrap` exists and is tested but has no caller (D44).
+- **Public keys are trusted on the server's word.** Someone with `MASTER_KEY` and database write access can replace
+  one (D42). Comparing fingerprints out of band defends against it.
+- **No key rotation or revocation.** A user can't replace a compromised key pair; that needs keeping the old public
+  key for verifying old signatures, plus a way to mark it revoked.
+- **Unlock attempts are not rate limited in this branch**, because nothing calls `Unlock` yet. The sharing and
+  signing branches must add a limit (D44).
+- **Memory clearing is best effort** (D13). Go strings (the password from the form) can't be cleared at all, and
+  `rsa.PrivateKey` keeps its values in `big.Int`s.

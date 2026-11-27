@@ -4,6 +4,9 @@
                  stored yet (or the submitted values when a save failed)
        .Alg      the crypto.Algorithm used to decrypt: aes, des or rc4 (default aes)
        .Errors   validation messages after a failed save (a slice or a map)
+       .Keys     []keypair.Info for the "My keys" card (encryption, signing);
+                 empty when the user has no key pairs yet
+       .KeysUnavailable  true when the key pairs could not be loaded
      Toga is confused when there are errors, smiling when data is stored and
      sleepy when not. It is busy while a save is sent, because the server
      encrypts every field with all three ciphers. */}}
@@ -69,5 +72,38 @@
     </label>
     <button type="submit" class="btn--primary">Encrypt &amp; save</button>
   </form>
+</section>
+
+<section class="card" aria-labelledby="keys-title">
+  <h2 id="keys-title">My keys</h2>
+  <p class="muted">You have two RSA-3072 key pairs: one that others use to encrypt shared keys for you, and one that you sign your PDFs with. Your private keys are stored encrypted with a key made from your password, so they can only be used when you type it. If you forget your password, they cannot be recovered.</p>
+  {{if .KeysUnavailable}}
+  <p role="alert">Your keys couldn't be loaded right now. Please try again later.</p>
+  {{else if .Keys}}
+  <table class="responsive-table">
+    <thead>
+      <tr>
+        <th scope="col">Key pair</th>
+        <th scope="col">Algorithm</th>
+        <th scope="col">Fingerprint (SHA-256)</th>
+        <th scope="col">Created</th>
+        <th scope="col">Public key</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Keys}}
+      <tr>
+        <td data-label="Key pair">{{if eq .Purpose "signing"}}Signing{{else}}Encryption{{end}}</td>
+        <td data-label="Algorithm">RSA-{{.Bits}}{{if eq .Purpose "encryption"}}, OAEP-SHA256{{end}}</td>
+        <td data-label="Fingerprint (SHA-256)"><code>{{.Fingerprint}}</code></td>
+        <td data-label="Created"><time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2 Jan 2006, 15:04"}}</time></td>
+        <td data-label="Public key"><a href="/keys/{{.Purpose}}/public.pem" download>Download PEM</a></td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">You don't have key pairs yet. They are created the next time you log in.</p>
+  {{end}}
 </section>
 {{template "footer" .}}{{end}}

@@ -18,6 +18,7 @@ const (
 	BenchmarksCollection   = "benchmarks"
 	SessionsCollection     = "sessions"
 	ApplicationsCollection = "applications"
+	KeypairsCollection     = "keypairs"
 )
 
 // indexes lists the indexes each collection needs. CreateMany is idempotent
@@ -43,6 +44,11 @@ func indexes() map[string][]mongo.IndexModel {
 			// One application per student and scholarship, via the blind index (D38).
 			{Keys: bson.D{{Key: "index", Value: 1}}, Options: options.Index().SetName("index_unique").SetUnique(true)},
 			{Keys: bson.D{{Key: "user_id", Value: 1}}, Options: options.Index().SetName("user_id")},
+		},
+		KeypairsCollection: {
+			// One key-pair document per user. The unique index also makes
+			// concurrent EnsureKeys calls keep exactly one set (D43).
+			{Keys: bson.D{{Key: "user_id", Value: 1}}, Options: options.Index().SetName("user_id_unique").SetUnique(true)},
 		},
 		// auth.SessionStore writes "expires_at" as a date, so this TTL index
 		// removes expired sessions.

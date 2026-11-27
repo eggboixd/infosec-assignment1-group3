@@ -16,12 +16,14 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/eggboixd/infosec-assignment1-group3/internal/auth"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/crypto"
+	"github.com/eggboixd/infosec-assignment1-group3/internal/keypair"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/web"
 )
@@ -326,5 +328,109 @@ func TestNothingSensitiveInLogs(t *testing.T) {
 	}
 	if strings.Contains(out, "Surabaya") || strings.Contains(out, "nope") {
 		t.Error("log contains form input")
+	}
+}
+
+// fakeKeys is a keyInfo that records which user was asked for.
+type fakeKeys struct {
+	mu    sync.Mutex
+	asked []bson.ObjectID
+	infos []keypair.Info
+	err   error
+}
+
+func (k *fakeKeys) Info(_ context.Context, userID bson.ObjectID) ([]keypair.Info, error) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.asked = append(k.asked, userID)
+	return k.infos, k.err
+}
+
+// keysEngine serves the profile page with keys as its key source.
+func keysEngine(t *testing.T, f *fixture, keys *fakeKeys) {
+	t.Helper()
+	e, err := web.NewEngine(web.Options{
+		Mode:         gin.TestMode,
+		MaxBodyBytes: 1 << 20,
+		Features:     []web.RouteRegistrar{profile.NewHandler(f.svc).WithKeys(keys)},
+		RequireAuth:  loginAsDevUser,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.engine = e
+}
+
+func TestProfileShowsMyKeys(t *testing.T) {
+	f := newFixture(t)
+	keys := &fakeKeys{infos: []keypair.Info{
+		{Purpose: keypair.Encryption, Bits: 3072, Fingerprint: "aaaa bbbb", CreatedAt: time.Date(2026, 11, 26, 9, 0, 0, 0, time.UTC)},
+		{Purpose: keypair.Signing, Bits: 3072, Fingerprint: "cccc dddd", CreatedAt: time.Date(2026, 11, 26, 9, 0, 0, 0, time.UTC)},
+	}}
+	keysEngine(t, f, keys)
+
+	rec := f.do(http.MethodGet, "/profile", nil)
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+	for _, want := range []string{"<code>aaaa bbbb</code>", "<code>cccc dddd</code>", "/keys/encryption/public.pem", "/keys/signing/public.pem"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	// Only the logged-in user's keys are ever looked up.
+	if len(keys.asked) != 1 || keys.asked[0] != devUserID {
+		t.Errorf("Info asked for %v, want only %s", keys.asked, devUserID.Hex())
+	}
+
+	// A failed save re-renders the form, keys included.
+	bad := validForm()
+	bad.Set("nik", "123")
+	if rec := f.do(http.MethodPost, "/profile", bad); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "<code>aaaa bbbb</code>") {
+		t.Errorf("failed save: status %d, keys shown %v", rec.Code, strings.Contains(rec.Body.String(), "aaaa bbbb"))
+	}
+}
+
+func TestProfileKeysStates(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"no keys yet", keypair.ErrNoKeys, "You don't have key pairs yet."},
+		{"integrity failure", keypair.ErrCorrupt, "Your keys couldn't be loaded right now."},
+		{"store failure", errors.New("mongo down"), "Your keys couldn't be loaded right now."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			prev := slog.Default()
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
+			t.Cleanup(func() { slog.SetDefault(prev) })
+
+			f := newFixture(t)
+			keysEngine(t, f, &fakeKeys{err: tt.err})
+			if err := f.svc.Save(context.Background(), devUserID, profile.PrivateData{
+				FullName: "Siti Rahayu", NIK: "3578015505010003", DateOfBirth: "2001-05-15",
+				Address: "Jl. Arief Rahman Hakim 1, Surabaya", Phone: "082233445566", Email: "siti@example.com",
+			}); err != nil {
+				t.Fatal(err)
+			}
+			rec := f.do(http.MethodGet, "/profile", nil)
+			// The applicant data is still shown whatever happens to the keys.
+			if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `value="Siti Rahayu"`) {
+				t.Fatalf("status %d; applicant data shown %v", rec.Code, strings.Contains(rec.Body.String(), "Siti Rahayu"))
+			}
+			if !strings.Contains(rec.Body.String(), tt.want) {
+				t.Errorf("page lacks %q", tt.want)
+			}
+			if strings.Contains(rec.Body.String(), "Download PEM") {
+				t.Error("download links shown without keys")
+			}
+			if tt.err != keypair.ErrNoKeys && !strings.Contains(buf.String(), devUserID.Hex()) {
+				t.Errorf("failure not logged with the user ID: %q", buf.String())
+			}
+		})
 	}
 }
