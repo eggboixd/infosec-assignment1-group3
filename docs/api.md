@@ -473,7 +473,8 @@ M 'printjson(db.keypairs.findOne({}, {"encryption.wrapped_private": 0, "signing.
 ```
 
 Expect one document per user with `kdf` (`alg: "argon2id"`, `v: 19`, `t: 3`, `m: 65536`, `p: 2` and a 16-byte `salt`,
-which differs from the salt in that user's `password_hash`), and `encryption` and `signing`, each with `public_der`,
+which differs from the salt in that user's `password_hash`; mongosh prints `t` and `m` as `Long('3')` and
+`Long('65536')` because the Go driver stores a `uint32` as a 64-bit integer), and `encryption` and `signing`, each with `public_der`,
 a 32-byte `fingerprint`, `public_mac` and `created_at`. `wrapped_private` is the PKCS#8 private key under AES-256-GCM:
 a random 12-byte nonce, the encrypted key and a 16-byte tag, so 28 bytes longer than the key. A plaintext PKCS#8 key
 would start with the DER bytes `30 82`; the stored blob starts with random bytes, different for every user.
