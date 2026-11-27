@@ -69,7 +69,3 @@ func (e *RateLimitError) Error() string {
 
 // Is makes errors.Is(err, ErrRateLimited) match.
 func (e *RateLimitError) Is(target error) bool { return target == ErrRateLimited }
-
-// errNotImplemented is temporary: the method bodies land in later commits of
-// feature/pdf-sign-core. TODO(feature/pdf-sign-core): remove.
-var errNotImplemented = errors.New("pdfsign: not implemented yet")

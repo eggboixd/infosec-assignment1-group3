@@ -19,6 +19,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/binary"
 	"encoding/hex"
 	"strings"
 	"time"
@@ -74,7 +75,7 @@ func encodeTextString(s string) types.HexLiteral {
 	b := make([]byte, 2, 2+2*len(units))
 	b[0], b[1] = 0xFE, 0xFF
 	for _, u := range units {
-		b = append(b, byte(u>>8), byte(u))
+		b = binary.BigEndian.AppendUint16(b, u)
 	}
 	return types.HexLiteral(strings.ToUpper(hex.EncodeToString(b)))
 }
