@@ -892,3 +892,235 @@ signs. How teammates call it: [keypairs.md](keypairs.md).
   signing branches must add a limit (D44).
 - **Memory clearing is best effort** (D13). Go strings (the password from the form) can't be cleared at all, and
   `rsa.PrivateKey` keeps its values in `big.Int`s.
+
+---
+
+## PDF signing (`feature/pdf-sign-core`)
+
+Assignment 3: an owner signs one of their stored PDFs with their **signing** key (D39), the signature is embedded in
+the PDF, and the app verifies it. Libraries may only do key generation, hashing, encryption and PDF reading/writing;
+the signing and verification logic is ours (`internal/pdfsign`). How the UI calls it: [pdfsign.md](pdfsign.md).
+
+### D45. Our own RSASSA-PKCS1-v1_5 with SHA-256
+
+- **Decision:** signatures are RSASSA-PKCS1-v1_5 (RFC 8017 §8.2) over SHA-256. The EMSA-PKCS1-v1_5 encoding and the
+  RSA arithmetic are written in `rsasig.go` on `math/big`. The libraries we use are only the allowed kinds: key
+  generation (`internal/keypair`), SHA-256, `crypto/rand`, and big-number arithmetic. `rsa.SignPKCS1v15`,
+  `VerifyPKCS1v15` and `SignPSS` appear only in tests, as a reference.
+- **Alternatives:** RSASSA-PSS (RFC 8017 §8.1); calling `crypto/rsa` (not allowed by the brief); ECDSA or Ed25519.
+- **Why:**
+  - *Deterministic, so checkable:* one key and one digest give exactly one v1.5 signature. Our output must be
+    byte-for-byte equal to `crypto/rsa`'s (`TestSignMatchesStdlib`, 2048- and 3072-bit keys, 0 B to 1 MiB inputs).
+    That is the strongest proof of correctness we can have without depending on the library in production. PSS is
+    randomised, so there would be no reference output to compare with.
+  - *Less of our own code to defend:* PSS also needs MGF1 and salt handling. v1.5 is one fixed byte pattern.
+  - *What PDF readers expect:* `adbe.pkcs7.detached` with an RSA v1.5 signature is what Adobe, Foxit and pdfsig check
+    (needed for the bonus format, D52). FIPS 186-5 still approves v1.5 signatures.
+  - *Is v1.5 safe?* The well-known v1.5 attacks are on *encryption* padding (Bleichenbacher 1998) or on *verifiers*
+    that parse the padding loosely (Bleichenbacher 2006). Our verifier doesn't parse it at all (D46).
+  - *SHA-256:* about 128-bit collision resistance, matching RSA-3072's 128-bit level (D39). It is the hash used
+    everywhere else in the app.
+- **Trade-offs:** v1.5 has no security proof, unlike PSS. We accept that for the reasons above.
+
+### D46. The RSA arithmetic: compare the whole block, blinding, no CRT, check after signing
+
+- **Decision:**
+  - *Verify:* the signature must be exactly k bytes (k = modulus size) with 0 < s < n. We compute m = s^e mod n,
+    **rebuild the encoding we expect** for the digest, and compare all k bytes with `subtle.ConstantTimeCompare`. We
+    never parse the recovered block. Keys outside 2048–8192 bits, an even n, e < 3 or an even e are rejected.
+  - *Sign:* m is blinded with a random r from `crypto/rand` that is invertible mod n, computing
+    s = (m·r^e)^d · r⁻¹ mod n. We use the plain exponent d, not the CRT form. The result is verified with the public
+    key before it is returned. If that check fails it is discarded (`errSelfCheck`).
+  - The SHA-256 DigestInfo prefix is the fixed 19-byte string from RFC 8017 §9.2, note 1. It is not built with
+    `encoding/asn1`.
+- **Alternatives:** parse the block (skip `FF`s, find `00`, read the ASN.1); CRT; no blinding; exponent blinding;
+  constant-time big-number code.
+- **Why:**
+  - *Compare, don't parse:* Bleichenbacher (2006) forged e = 3 signatures against verifiers that checked the hash but
+    ignored bytes after it, and variants (BERserk against NSS, 2014) kept appearing. There is exactly one valid
+    encoding per digest, so comparing with it leaves no room for hidden bytes. `TestVerifyRejectsMalformedEncodings`
+    shows a parsing verifier accepting a garbage-after-hash block that ours rejects. The constant-time compare doesn't
+    reveal how many leading bytes matched.
+  - *Range and length checks:* s + n is the same number mod n but a different byte string; a truncated or padded
+    signature is not a k-byte signature. Both are rejected rather than normalised.
+  - *Key checks:* with e = 1 every block is its own signature. A huge modulus from an untrusted certificate (D52)
+    would cost CPU.
+  - *Blinding:* `big.Int.Exp` is not constant-time, so its timing depends on the number it works on (Kocher 1996).
+    Multiplying by a random r^e first means that number is random. This is what `crypto/rsa` did before it moved to
+    constant-time arithmetic.
+  - *No CRT:* CRT is faster, but a single fault in one half of a CRT computation reveals a prime factor of n
+    (Boneh, DeMillo and Lipton 1997). Measured on the developer's laptop: our signature (blinding + exponentiation +
+    self-check) takes **23 ms**, `crypto/rsa`'s CRT signature 6 ms, and verification 0.15 ms. Signing a whole PDF
+    takes 27 ms. All of this is small next to the ≈ 0.1 s Argon2id unlock (D44) that precedes every signature.
+  - *Check after signing:* this catches a fault or a bug before a wrong signature leaves the server. It costs one
+    verification (0.15 ms).
+  - *Fixed prefix:* the verifier compares against constant bytes, so it can't accept an alternative DER form (for
+    example the encoding without the NULL parameters, also tested).
+- **Trade-offs:** blinding hides the *input*, but `math/big` still isn't constant-time in d itself. Exponent blinding
+  (d + k·φ(n)) would cover that; it isn't implemented (see Known limitations). Wiping the key after use is best
+  effort (D13).
+
+### D47. pdfcpu reads the PDF; our own code writes the update
+
+- **Decision:** `github.com/pdfcpu/pdfcpu` v0.16.4 (Apache-2.0) **only reads** PDFs: catalog, first page, AcroForm
+  fields, object offsets, trailer. Our own `pdfwrite.go` writes the incremental update. pdfcpu runs with a stateless,
+  offline configuration (no config directory, no network). Its error text is discarded and a panic becomes
+  `ErrNotPDF`. pdfcpu's own signature validation is not used outside tests.
+- **Alternatives:**
+
+  | | pdfcpu read + our writer | Hand-written parser + writer | pdfcpu read and write (`WriteIncrement`) |
+  |---|---|---|---|
+  | Real CVs/transcripts (xref streams, object streams, Flate + PNG predictors from Word and pdfTeX) | yes | ~800 lines of our own parser to make bug-free and fuzz-safe | yes |
+  | Exact byte positions for `/ByteRange` and `/Contents` | yes | yes | no, pdfcpu lays out the bytes |
+  | Parser attack surface | maintained library, with fixed security advisories | ours, new | same as column 1 |
+
+- **Why:**
+  - PDF reading is an allowed library use, and it is where the complexity and the bugs are: compressed object
+    streams, cross-reference streams, broken files. A wrong offset there would make us sign the wrong revision.
+  - Writing the update ourselves is small (about 200 lines). It is the part the signature depends on: the
+    `/ByteRange` numbers must name the exact offsets of the `/Contents` hole in the final file.
+  - We serialise dictionaries ourselves too. pdfcpu's `Dict`/`Array.PDFString` silently drop value types they don't
+    know, which would corrupt a rewritten catalog without an error. Ours refuses unknown types (`ErrUnsupportedPDF`).
+  - pdfcpu's error messages can quote file content, and the file may hold personal data, so they never reach logs.
+- **Trade-offs:** one direct dependency plus four indirect ones (`x/image`, `hhrutter/tiff`, `go-runewidth`,
+  `uax29`), and minor upgrades of `golang.org/x/*`. pdfcpu loads the whole file into memory (bounded by D51).
+  pdfcpu may tolerate a damaged file that we would then sign. We read the final `startxref` ourselves and refuse if
+  it doesn't point at an xref section, and every signed copy is verified end to end before it is stored (D51).
+
+### D48. One incremental update with an invisible signature field
+
+- **Decision:** signing appends **one incremental update** (ISO 32000-1 §7.5.6) after the unchanged original bytes.
+  It contains a signature dictionary, a signature field that is also its own widget annotation (`/Rect [0 0 0 0]`,
+  `/F 132` = Print | Locked, on page 1), the field appended to the AcroForm with `/SigFlags 3`, and the widget
+  appended to page 1's `/Annots`. Only the objects that hold those arrays are rewritten. The cross-reference section
+  has the same kind as the original's newest one (classic table or uncompressed xref stream, `/W [1 4 2]`).
+  `/ByteRange` and `/Contents` are fixed-width placeholders that are filled in after layout.
+- **Alternatives:** rewrite the whole file; a detached `.sig` file or a signature in MongoDB; a visible signature
+  stamp; always a classic xref table.
+- **Why:**
+  - *Embedded:* the brief requires the signature to be in the PDF. A downloaded copy then carries its own proof.
+  - *Incremental:* earlier bytes never move, so an existing signature stays valid when a second person signs
+    (`TestSignTwice`). It is how Adobe and pyHanko sign. `/SigFlags 3` (SignaturesExist | AppendOnly) tells editors
+    to save incrementally too.
+  - *Placeholders:* the hash covers the `/ByteRange` text, so its value must be written before hashing without moving
+    anything. Fixed widths (36 characters, padded with spaces; a 512-byte zero-filled `/Contents`) make that possible.
+  - *Invisible:* a visible stamp needs an appearance stream with fonts and layout. The app shows the verdict itself
+    (pdfsign.md), and readers list invisible signatures in their signature panel.
+  - *Same xref kind:* a reader that follows `/Prev` from our section expects the kind it started with. Mixing is
+    tolerated by many readers but is not what the spec describes.
+- **Trade-offs:** no visible stamp; the widget is on page 1 only. `qpdf --check` reports no errors on our signed
+  samples, and pdfsig lists their signatures with ranges ending at the end of the file.
+
+### D49. The in-app signature format: identity inside the signed bytes, trust from the registered key
+
+- **Decision:** `/Filter /SecureStore /SubFilter /SecureStore.rsa_sha256.v1`. `/Contents` holds the raw k-byte
+  signature over SHA-256 of the two `/ByteRange` ranges, zero-padded. The signer's user ID (`/SecureStore.Signer`),
+  key fingerprint (`/SecureStore.KeyFP`, SHA-256 of the PKIX key, as in D42), username (`/Name`, UTF-16BE) and
+  claimed time (`/M`) sit **inside the signed bytes**. To verify, we look the signer's key up with
+  `keypair.PublicKey(signerID, Signing)` (MAC-checked, D42) and require its fingerprint to equal the one in the PDF.
+- **Alternatives:** embed the public key and trust it; look the key up by fingerprint only; trust `/Name`; start with
+  CMS and X.509 (D52).
+- **Why:**
+  - *Signed identity:* if the signer ID or fingerprint were outside the signed bytes, anyone could relabel a
+    signature.
+  - *Key from the directory, not the PDF:* a key carried in the PDF only proves "whoever owns this key signed". Taking
+    it from the app's MAC-protected directory proves "this user's registered key signed". The fingerprint in the PDF
+    pins *which* key, so a mismatch is `ErrKeyMismatch` rather than a silent pass. Users can compare fingerprints out
+    of band (D42).
+  - *Our own filter name:* other readers won't mistake it for a standard format they would then fail to check.
+  - *Personal data:* only the username and an internal user ID are written into the PDF, nothing from the profile
+    (no NIK). `/Name` is cleaned (control and bidi-override characters removed, 64 runes max) because it is shown
+    in the UI.
+- **Trade-offs:** third-party readers can't check this format (pdfsig reports type "unknown"). That is why the bonus
+  format exists (D52). A PDF shared outside the app reveals the signer's internal user ID. Verification needs this
+  app's key directory.
+
+### D50. Verification rules and the report
+
+- **Decision:** for every signature dictionary reached through the AcroForm (cycle-, depth- and count-limited, at most
+  16 signatures), in order:
+  1. `/ByteRange` is four integers [0 a b c] with 0 < a < b and b + c ≤ file size, each bound checked on its own (no
+     overflow);
+  2. the hole [a, b) is exactly this dictionary's `/Contents`: `<`, hex digits, `>`, equal to the parsed value,
+     preceded by the `/Contents` key, in a dictionary that starts inside the signed bytes;
+  3. the format is ours (others: `ErrUnsupportedFormat`);
+  4. the signer is known (`ErrUnknownSigner`) and the registered key's fingerprint matches (`ErrKeyMismatch`);
+  5. the signature is k bytes followed only by zero padding (`ErrMalformedSignature`) and verifies over the two
+     ranges (`ErrBadSignature`).
+
+  The document is **Valid** if every signature passes and the newest one ends at the end of the file, **Modified** if
+  they all pass but bytes follow the newest one (`AppendedBytes`), **Invalid** if any fails, and **Unsigned** if there
+  are none. An older signature is `CoveredByLater` when a later valid signature's first range reaches past its end. A
+  key-directory failure (for example MongoDB down) is an error, not a verdict.
+- **Alternatives:** report only valid/invalid; accept any `/ByteRange` whose bytes hash correctly; treat appended
+  bytes as invalid; verify only the newest signature.
+- **Why:**
+  - *Strict hole checks:* the "1 Trillion Dollar Refund" study (Mladenov et al., CCS 2019) broke most PDF viewers with
+    signature wrapping (moving the hole so that it holds new content) and universal signature forgery (malformed or
+    missing values). If the hole is exactly the hex signature of this dictionary, and the dictionary is in the signed
+    part, nothing else can hide there. Ten `/ByteRange` manipulations are tested.
+  - *Modified is its own status:* in the incremental saving attack, an update appended after signing changes what a
+    viewer shows while the old signature still verifies. Calling that "valid" would be wrong. Calling it "invalid"
+    would hide the fact that the signature *is* good for an earlier version. Adobe likewise says "signed, but modified
+    after".
+  - *All signatures:* with several signers, each one's verdict matters. Ordering by where each revision ends gives
+    oldest first.
+  - *Errors vs verdicts:* a signature must not be called forged because the database was unreachable.
+- **Trade-offs:** we don't compare revisions, so for an older signature we can't tell "only a signature was added
+  later" from "content was changed and then signed again". `CoveredByLater` says a later valid signer vouched for the
+  newer version. DocMDP (certification) permissions aren't checked. The strict layout may reject unusual third-party
+  signatures, which are `ErrUnsupportedFormat` anyway.
+
+### D51. The signing service
+
+- **Decision:** `SignFile` works only on the logged-in owner's file (`files.Get` is owner-scoped). In order, it:
+  1. refuses a user over the wrong-password limit before doing any work (5 failures per 5 minutes per user, counting
+     only wrong passwords);
+  2. checks the MIME type;
+  3. decrypts the AES variant into memory;
+  4. refuses if any existing signature doesn't verify (`ErrExistingSignatureInvalid`);
+  5. only then `Unlock`s the signing key;
+  6. signs, and wipes the key;
+  7. verifies the signed copy end to end;
+  8. stores it as `<name>-signed.pdf` through `files.UploadSlot` in the original's slot (or `Upload` as a document),
+     keeping the original.
+
+  At most two signs or verifies run at once. There is no new collection.
+- **Alternatives:** replace the original; store the copy without a slot; record signatures in MongoDB; only a per-IP
+  limit; count every attempt; stream instead of buffering.
+- **Why:**
+  - *In memory, bounded:* the signature hashes two ranges whose offsets exist only after layout, and pdfcpu needs
+    random access, so the PDF is held in memory. It is never written to disk. The 50 MiB document limit (D33) and two
+    slots bound that memory.
+  - *Same slot, original kept (team decision):* the signed copy becomes the application document, and the original
+    moves to "Other files" where it can still be deleted. Nothing is lost by signing.
+  - *No signing over broken signatures:* the user would appear to vouch for a forged or damaged document.
+  - *Per-user limit, failures only:* each wrong password is an online guess at the key's password (D44). The guesses
+    target the account, whatever IP they come from. Counting only failures means a user who signs many documents is
+    never blocked. The check comes first, so a blocked user can't make us decrypt files either.
+  - *Unlock last:* a wrong document costs neither a password attempt nor an Argon2id run, and the key exists only for
+    the few milliseconds of signing (D44).
+  - *End-to-end self-check:* the copy is verified exactly as any verifier would, before it is stored. A writer bug can
+    never produce a stored signed file that doesn't verify.
+  - *No collection:* the signature is in the PDF. Verification re-derives everything from the file and the key
+    directory, so there is no second source of truth to keep in sync or to tamper with.
+  - *Stored encrypted three times:* the signed copy goes through the normal upload pipeline (D1, D32) like any file.
+    Decrypting it also records a decrypt benchmark, which is a real decryption.
+- **Trade-offs:** the limiter is in memory (like D29), so it resets on restart and isn't shared between replicas.
+  Each signature stores a full new copy of the file.
+
+---
+
+## Known limitations (PDF signing)
+
+- **No trusted timestamp.** `/M` is the server's clock as written by the signer. There is no RFC 3161 timestamp and
+  no long-term validation (revocation data).
+- **No key rotation or revocation** (as for key pairs). A signature by a key that was later compromised still
+  verifies. A user whose account is deleted becomes an unknown signer.
+- **Only our format is verified** until the bonus CMS format (D52) exists. Third-party viewers show our signatures
+  as an unknown type, and signatures made by other software are `ErrUnsupportedFormat`.
+- **`math/big` is not constant-time in d.** The input is blinded; the exponent is not (D46).
+- **Invisible signature on page 1 only**; no certification (DocMDP) signatures. A PDF with an XFA form may show its
+  XFA form instead of our AcroForm field in Adobe.
+- **Encrypted PDFs are refused**, and so are PDFs whose cross-reference data we can't follow (`ErrUnsupportedPDF`).
+  Re-saving the file ("Print → Save as PDF") usually fixes the latter.

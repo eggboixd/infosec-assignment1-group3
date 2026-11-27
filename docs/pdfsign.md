@@ -3,9 +3,9 @@
 For `feature/pdf-signing-ui` (handlers, templates, sign button, verify page). The reasons behind every choice are in
 [decisions.md](decisions.md), from D45. Keys come from [keypairs.md](keypairs.md).
 
-> **Status:** the exported API below is fixed. In the first commit the three service methods return a temporary
-> "not implemented" error; their bodies land in the next commits of `feature/pdf-sign-core` without changing any
-> signature. You can build and test your handlers against it now, with a fake (see [Testing](#testing-your-handlers)).
+> **Status:** implemented and tested on `feature/pdf-sign-core`. Signatures use the app's own format
+> (`FormatInApp`), which this app verifies. The Adobe-readable `FormatCMS` is a planned bonus (D52); until it lands,
+> such signatures are reported with `ErrUnsupportedFormat`. Nothing in the API below changes when it does.
 
 ## What it does
 
@@ -54,7 +54,7 @@ type Report struct {
 	Status        Status            // the verdict on the whole document, show it first
 	Signatures    []SignatureResult // oldest first
 	FileSize      int64
-	AppendedBytes int64             // bytes after the newest signature (> 0 only when Modified)
+	AppendedBytes int64             // bytes after the newest signature; with all signatures valid, > 0 means Modified
 }
 
 type SignatureResult struct {
@@ -112,7 +112,7 @@ passwords or file content, so they are safe to log next to a user ID and file ID
 | `pdfsign.ErrUnsupportedPDF` | SignFile | Readable, but its structure can't be signed safely. | 422 "This PDF can't be signed. Try re-saving it (Print → Save as PDF)." |
 | `pdfsign.ErrTooLarge` | all | Over `MaxSize` (or the signed copy would be). | 413 "PDF too large (max 50 MB)." |
 | `pdfsign.ErrExistingSignatureInvalid` | SignFile | The PDF already has a signature that doesn't verify; we won't add ours to it. | 409 "This PDF has an invalid signature. Verify it to see why." |
-| `pdfsign.ErrTooManySignatures` | SignFile | Already at the maximum number of signatures. | 409 "This PDF has too many signatures." |
+| `pdfsign.ErrTooManySignatures` | all | More than 16 signatures (SignFile: already 16). | 409 / 422 "This PDF has too many signatures." |
 | `files.ErrMIMENotAllowed` / `files.ErrTooLarge` | SignFile | Storing the signed copy failed the upload checks (should not happen for a valid PDF). | 422 / 413 |
 | `crypto.ErrAuthentication`, `files.ErrCorrupt` | SignFile, VerifyFile | The stored encrypted file failed its integrity check (D9). | 422 "The stored file failed its integrity check." |
 | `context.Canceled` / anything else | all | Client gone, MongoDB/MinIO error. | 500 generic, log it |
@@ -148,7 +148,8 @@ pdfSignSvc := pdfsign.NewService(filesSvc, keySvc)
    (D44). Clear the field when the page is shown again.
 2. **The signer is always the logged-in user** (`auth.CurrentUser`). File IDs come from the URL; `SignFile` and
    `VerifyFile` already scope them to that user. Don't add a "sign as" or "owner" field.
-3. **Rate limits:** `SignFile` already limits each *user* (5 attempts per 5 minutes) and returns `ErrRateLimited`.
+3. **Rate limits:** `SignFile` already limits each *user* to 5 **wrong passwords** per 5 minutes (successful
+   signatures don't count) and then returns `ErrRateLimited` before doing any work, even for the right password.
    A per-IP limit in the handler, like auth's (D29), is welcome on top but not required.
 4. **Only offer "Sign" for PDFs** (`rec.MIMEType == "application/pdf"` / a `.pdf` name). The service rejects
    anything else with `ErrNotPDF` anyway.
@@ -195,3 +196,46 @@ rep, err := h.svc.VerifyFile(c.Request.Context(), user.ID, id)
 You don't need MongoDB, MinIO or real keys: implement your `signer` interface with a fake that returns a canned
 `*pdfsign.Report` or one of the exported errors. To test error mapping, wrap them as the service does, for example
 `fmt.Errorf("pdfsign: %w", keypair.ErrUnlock)` and `&pdfsign.RateLimitError{RetryAfter: time.Minute}`.
+
+## What goes into the PDF (for the report and for debugging)
+
+Signing appends one incremental update after the unchanged original (D48):
+
+```text
+N 0 obj   field + widget: /FT /Sig /Type /Annot /Subtype /Widget /Rect [0 0 0 0] /F 132 /T (SecureStore Signature N-1)
+          /V (N-1) 0 R /P <page 1>
+          the AcroForm (/Fields + this field, /SigFlags 3) and page 1's /Annots (+ this widget), rewritten
+N-1 0 obj <</Type /Sig /Filter /SecureStore /SubFilter /SecureStore.rsa_sha256.v1
+          /ByteRange [0 a b c]       signed bytes: [0, a) and [b, b+c); b+c = end of the file
+          /Contents <…1024 hex…>     the hole [a, b): 384-byte RSA-3072 signature, then zero padding
+          /M (D:20261128093015Z)     claimed signing time (UTC)
+          /Name <FEFF…>              username, UTF-16BE
+          /SecureStore.Signer (…)    signer's user ID (24 hex digits)
+          /SecureStore.KeyFP <…>     SHA-256 fingerprint of the signing key, as on "My keys"
+          >>
+xref / xref stream, trailer with /Prev, startxref, %%EOF
+
+signature = RSASSA-PKCS1-v1_5(SHA-256(bytes [0,a) ‖ bytes [b,b+c)))   our own code, D45–D46
+```
+
+## Checking with other tools (optional, Docker)
+
+The test suite can write signed samples (throwaway keys, synthetic content) for third-party checks:
+
+```powershell
+$dir = "$env:TEMP\pdfsign-samples"; New-Item -ItemType Directory -Force $dir | Out-Null
+$env:PDFSIGN_SAMPLES_DIR = $dir; go test ./internal/pdfsign -run TestWriteSamples; Remove-Item Env:PDFSIGN_SAMPLES_DIR
+docker run --rm -v "${dir}:/w" debian:stable-slim sh -c "apt-get update -qq && apt-get install -y -qq qpdf poppler-utils >/dev/null && for f in /w/*-signed*.pdf; do qpdf --check `$f; pdfsig `$f; done"
+```
+
+`qpdf --check` should print "No syntax or stream encoding errors found". `pdfsig` lists each signature with its
+field name, signing time and signed ranges ending at the file size; it reports the type as "unknown" and "Not total
+document signed", and exits non-zero, because it can't read our in-app format (only CMS, the bonus), not because of a
+coverage problem.
+
+Fuzzing (Linux/Docker recommended), with a short minimisation time so progress doesn't pause for a minute after
+every new input:
+
+```powershell
+docker run --rm -v "${PWD}:/src" -w /src golang:1.27.1 go test ./internal/pdfsign -run XXX -fuzz FuzzVerifyPDF -fuzztime 2m -fuzzminimizetime 2s
+```
