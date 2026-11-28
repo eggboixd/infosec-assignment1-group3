@@ -188,12 +188,16 @@ type fakeGranter struct {
 	destroyed  []bson.ObjectID
 	grantErr   error
 	destroyErr error
+	onGrant    func() // runs inside Grant, e.g. to move the clock
 }
 
 func (g *fakeGranter) Grant(_ context.Context, gr Grant) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.grants = append(g.grants, gr)
+	if g.onGrant != nil {
+		g.onGrant()
+	}
 	return g.grantErr
 }
 
