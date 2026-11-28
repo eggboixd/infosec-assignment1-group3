@@ -414,3 +414,60 @@ func FuzzEnvelopeRoundTrip(f *testing.F) {
 		}
 	})
 }
+
+// DecryptWithKeys must open what Encrypt made, given the keys Encrypt
+// wrapped, and refuse a wrong key, a changed byte or a replaced wrapped key.
+func TestDecryptWithKeys(t *testing.T) {
+	e := newTestEnvelope(t)
+	pt := randBytes(t, 70_000)
+	for _, alg := range All() {
+		t.Run(string(alg), func(t *testing.T) {
+			ct, meta := encryptBytes(t, e, alg, pt)
+			dek, err := UnwrapKey(e.master, meta.WrappedDEK)
+			if err != nil {
+				t.Fatal(err)
+			}
+			macKey, err := UnwrapKey(e.master, meta.WrappedMACKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var out bytes.Buffer
+			if err := DecryptWithKeys(context.Background(), alg, meta, dek, macKey, &out, bytes.NewReader(ct)); err != nil {
+				t.Fatalf("DecryptWithKeys: %v", err)
+			}
+			if !bytes.Equal(out.Bytes(), pt) {
+				t.Fatal("plaintext differs")
+			}
+
+			badMAC := bytes.Clone(macKey)
+			badMAC[0] ^= 1
+			tampered := bytes.Clone(ct)
+			tampered[len(tampered)/2] ^= 1
+			rewrapped := meta
+			rewrapped.WrappedDEK = bytes.Clone(meta.WrappedDEK)
+			rewrapped.WrappedDEK[0] ^= 1
+
+			cases := []struct {
+				name   string
+				meta   Meta
+				macKey []byte
+				ct     []byte
+			}{
+				{"wrong mac key", meta, badMAC, ct},
+				{"changed ciphertext", meta, macKey, tampered},
+				{"replaced wrapped key", rewrapped, macKey, ct},
+			}
+			for _, c := range cases {
+				var out bytes.Buffer
+				err := DecryptWithKeys(context.Background(), alg, c.meta, dek, c.macKey, &out, bytes.NewReader(c.ct))
+				if !errors.Is(err, ErrAuthentication) {
+					t.Errorf("%s: err = %v, want ErrAuthentication", c.name, err)
+				}
+				if out.Len() != 0 {
+					t.Errorf("%s: wrote %d bytes before failing", c.name, out.Len())
+				}
+			}
+		})
+	}
+}

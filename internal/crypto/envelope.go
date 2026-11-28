@@ -180,6 +180,32 @@ func (e *Envelope) open(clock *Clock, alg Algorithm, meta Meta, dst io.Writer, s
 		return fmt.Errorf("decrypt %s: mac key: %w", alg, err)
 	}
 	defer clear(macKey)
+	return openKeys(clock, alg, meta, dek, macKey, dst, src)
+}
+
+// DecryptWithKeys verifies and decrypts src like Encryptor.Decrypt, but with
+// a DEK and MAC key the caller has already unwrapped, for example from a
+// share key (internal/sharekey). meta is the original Meta: its wrapped keys
+// are still part of the MAC header, so they must not be replaced.
+func DecryptWithKeys(ctx context.Context, alg Algorithm, meta Meta, dek, macKey []byte, dst io.Writer, src io.ReadSeeker) error {
+	if !alg.Valid() {
+		return fmt.Errorf("%w: %q", ErrUnknownAlgorithm, alg)
+	}
+	if meta.Algorithm != alg {
+		return fmt.Errorf("decrypt: meta is for %q, not %q", meta.Algorithm, alg)
+	}
+	if len(meta.IV) != alg.IVSize() {
+		return fmt.Errorf("decrypt %s: IV must be %d bytes, got %d: %w", alg, alg.IVSize(), len(meta.IV), ErrAuthentication)
+	}
+	if len(meta.Tag) != tagSize {
+		return fmt.Errorf("decrypt %s: tag must be %d bytes, got %d: %w", alg, tagSize, len(meta.Tag), ErrAuthentication)
+	}
+	return openKeys(ClockFrom(ctx), alg, meta, dek, macKey, dst, src)
+}
+
+// openKeys is the second half of open: verify, then decrypt, with keys that
+// are already unwrapped.
+func openKeys(clock *Clock, alg Algorithm, meta Meta, dek, macKey []byte, dst io.Writer, src io.ReadSeeker) error {
 	if len(dek) != dekSize(alg) || len(macKey) != macKeySize {
 		return fmt.Errorf("decrypt %s: unwrapped key has wrong length: %w", alg, ErrAuthentication)
 	}
