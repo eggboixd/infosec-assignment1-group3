@@ -1,0 +1,117 @@
+{{define "shares.html"}}{{template "header" .}}
+{{/* Data:
+       .Inbox      []sharing.View: requests to the logged-in user, newest first
+       .Sent       []sharing.View: requests from them
+       .Durations  approve choices (.Value, .Label); .Default is preselected
+     Each View's .Status is the effective status (expiry applied). Pending
+     inbox rows carry the requester's encryption-key .Fingerprint, or
+     .KeyProblem when it can't be verified. */}}
+{{- $durations := .Durations}}{{$default := .Default}}
+<section class="card">
+  <div class="page-head">
+    <div class="gembi" data-gembi data-base-mood="smiling">{{template "mascot" "smiling"}}</div>
+    <div>
+      <h1>Data sharing</h1>
+      <p>Ask another user for access to their private data: applicant data, images and documents. If they approve, they make a share key, encrypt it with your public key and send it to you over WhatsApp or email. Access ends when it expires or they revoke it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="card" aria-labelledby="ask-title">
+  <h2 id="ask-title">Request access</h2>
+  <form method="post" action="/shares/requests" class="inline-form">
+    <label>Username
+      <input name="username" required maxlength="64" autocomplete="off">
+    </label>
+    <label>Reason <span class="hint">(optional, shown to them)</span>
+      <input name="reason" maxlength="200">
+    </label>
+    <button type="submit" class="btn--primary">Send request</button>
+  </form>
+</section>
+
+<section class="card" aria-labelledby="inbox-title">
+  <h2 id="inbox-title">Requests to you</h2>
+  {{if .Inbox}}
+  <table class="responsive-table">
+    <thead>
+      <tr><th scope="col">From</th><th scope="col">Reason</th><th scope="col">Status</th><th scope="col">Action</th></tr>
+    </thead>
+    <tbody>
+      {{range .Inbox}}
+      <tr>
+        <td data-label="From"><strong>{{.RequesterName}}</strong><br><span class="muted"><time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2 Jan 2006, 15:04"}}</time></span></td>
+        <td data-label="Reason">{{with .Reason}}{{.}}{{else}}<span class="muted">none</span>{{end}}</td>
+        <td data-label="Status">{{template "shareStatus" .}}</td>
+        <td data-label="Action">
+          {{if eq .Status "pending"}}
+            {{if .KeyProblem}}
+            <p role="alert">Their public key couldn't be verified, so this can't be approved.</p>
+            {{else}}
+            <p class="hint">Their key fingerprint: <code>{{.Fingerprint}}</code>. Ask them to confirm it before you approve.</p>
+            <form method="post" action="/shares/requests/{{.ID.Hex}}/approve" class="inline-form">
+              <label>Access for
+                <select name="duration">
+                  {{range $durations}}<option value="{{.Value}}"{{if eq .Value $default}} selected{{end}}>{{.Label}}</option>{{end}}
+                </select>
+              </label>
+              <button type="submit" class="btn--primary btn--small">Approve</button>
+            </form>
+            {{end}}
+            <form method="post" action="/shares/requests/{{.ID.Hex}}/reject" class="inline" data-confirm="Reject this request from {{.RequesterName}}?">
+              <button type="submit" class="btn--danger btn--small">Reject</button>
+            </form>
+          {{else if eq .Status "approved"}}
+            <form method="post" action="/shares/requests/{{.ID.Hex}}/revoke" class="inline" data-confirm="Revoke {{.RequesterName}}'s access now?">
+              <button type="submit" class="btn--danger btn--small">Revoke</button>
+            </form>
+          {{else}}<span class="muted">none</span>{{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">Nobody has asked for your data.</p>
+  {{end}}
+</section>
+
+<section class="card" aria-labelledby="sent-title">
+  <h2 id="sent-title">Your requests</h2>
+  {{if .Sent}}
+  <table class="responsive-table">
+    <thead>
+      <tr><th scope="col">To</th><th scope="col">Sent</th><th scope="col">Status</th><th scope="col">Action</th></tr>
+    </thead>
+    <tbody>
+      {{range .Sent}}
+      <tr>
+        <td data-label="To"><strong>{{.OwnerName}}</strong></td>
+        <td data-label="Sent"><time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2 Jan 2006, 15:04"}}</time></td>
+        <td data-label="Status">{{template "shareStatus" .}}</td>
+        <td data-label="Action">
+          {{if eq .Status "pending"}}
+          <form method="post" action="/shares/requests/{{.ID.Hex}}/cancel" class="inline">
+            <button type="submit" class="btn--ghost btn--small">Cancel</button>
+          </form>
+          {{else}}<span class="muted">none</span>{{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">You haven't asked anyone yet.</p>
+  {{end}}
+</section>
+{{template "footer" .}}{{end}}
+
+{{/* shareStatus shows a View's effective status and the relevant time. */}}
+{{define "shareStatus"}}
+  {{- if eq .Status "pending"}}<span class="badge badge--incomplete">Pending</span><br><span class="hint">Lapses {{.ExpiresAt.Format "2 Jan 2006, 15:04"}}</span>
+  {{- else if eq .Status "approved"}}<span class="badge badge--ready">Approved</span><br><span class="hint">Access until {{.ExpiresAt.Format "2 Jan 2006, 15:04"}}</span>
+  {{- else if eq .Status "rejected"}}<span class="badge badge--closed">Rejected</span>
+  {{- else if eq .Status "cancelled"}}<span class="badge badge--closed">Cancelled</span>
+  {{- else if eq .Status "revoked"}}<span class="badge badge--closed">Revoked</span>
+  {{- else}}<span class="badge badge--closed">Expired</span>{{end -}}
+{{end}}

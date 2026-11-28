@@ -22,6 +22,13 @@
     select.addEventListener("change", () => form.requestSubmit());
   });
 
+  // <form data-confirm="question"> asks before submitting. Without
+  // JavaScript the form just submits.
+  document.addEventListener("submit", (event) => {
+    const question = event.target.getAttribute("data-confirm");
+    if (question && !window.confirm(question)) event.preventDefault();
+  });
+
   // Dismissible flash messages.
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-dismiss]");

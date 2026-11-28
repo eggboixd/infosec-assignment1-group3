@@ -17,6 +17,7 @@ import (
 	"github.com/eggboixd/infosec-assignment1-group3/internal/files"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/keypair"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
+	"github.com/eggboixd/infosec-assignment1-group3/internal/sharing"
 )
 
 // checklist builds the data files.html reads, from the same function the
@@ -571,8 +572,12 @@ func TestTemplatesAreCSPSafe(t *testing.T) {
 		"Records":      []benchmark.Record{{}},
 		"Status":       404,
 		"Message":      "Not found.",
+		"Inbox":        shareInbox,
+		"Sent":         shareSent,
+		"Durations":    shareDurations,
+		"Default":      "7d",
 	}
-	for _, page := range []string{"home.html", "login.html", "register.html", "files.html", "profile.html", "benchmarks.html", "error.html"} {
+	for _, page := range []string{"home.html", "login.html", "register.html", "files.html", "profile.html", "benchmarks.html", "error.html", "shares.html"} {
 		for _, data := range []map[string]any{{}, full} {
 			out := renderPage(t, page, data)
 			for _, v := range cspViolations {
@@ -651,6 +656,53 @@ func TestLayoutRendersFlash(t *testing.T) {
 			data:    map[string]any{"Flash": map[string]string{"Kind": "error", "Message": "<i>x</i>"}},
 			want:    []string{"&lt;i&gt;x&lt;/i&gt;"},
 			notWant: []string{"<i>x</i>"},
+		},
+	})
+}
+
+var (
+	shareExp       = time.Date(2026, 12, 5, 14, 0, 0, 0, time.UTC)
+	shareDurations = []struct{ Value, Label string }{{"1d", "1 day"}, {"7d", "7 days"}, {"30d", "30 days"}}
+	shareInbox     = []sharing.View{
+		{Request: sharing.Request{ID: bson.ObjectID{1}, RequesterName: "kenzie", Reason: "<script>x</script>", ExpiresAt: shareExp}, Status: sharing.StatusPending, Fingerprint: "1a2b 3c4d"},
+		{Request: sharing.Request{ID: bson.ObjectID{2}, RequesterName: "palpal", ExpiresAt: shareExp}, Status: sharing.StatusPending, KeyProblem: true},
+		{Request: sharing.Request{ID: bson.ObjectID{3}, RequesterName: "rayen", ExpiresAt: shareExp}, Status: sharing.StatusApproved},
+	}
+	shareSent = []sharing.View{
+		{Request: sharing.Request{ID: bson.ObjectID{4}, OwnerName: "rayen", ExpiresAt: shareExp}, Status: sharing.StatusApproved},
+		{Request: sharing.Request{ID: bson.ObjectID{5}, OwnerName: "kenzie", ExpiresAt: shareExp}, Status: sharing.StatusExpired},
+	}
+)
+
+func TestSharesTemplate(t *testing.T) {
+	data := map[string]any{"User": student, "Inbox": shareInbox, "Sent": shareSent, "Durations": shareDurations, "Default": "7d"}
+	runPageCases(t, []pageCase{
+		{
+			name: "rows by state",
+			page: "shares.html",
+			data: data,
+			want: []string{
+				"&lt;script&gt;x&lt;/script&gt;",
+				"<code>1a2b 3c4d</code>",
+				`name="duration"`,
+				`<option value="7d" selected>`,
+				"couldn't be verified",
+				"Access until 5 Dec 2026, 14:00",
+				`/shares/requests/` + bson.ObjectID{3}.Hex() + `/revoke`,
+				"Expired",
+			},
+			notWant: []string{
+				"<script>x</script>",
+				`/shares/requests/` + bson.ObjectID{2}.Hex() + `/approve`,
+				`/shares/requests/` + bson.ObjectID{4}.Hex() + `/cancel`,
+			},
+			count: map[string]int{`/approve"`: 1, `/reject"`: 2, `/revoke"`: 1, `/cancel"`: 0},
+		},
+		{
+			name: "empty lists",
+			page: "shares.html",
+			data: map[string]any{"User": student},
+			want: []string{"Nobody has asked for your data.", "You haven't asked anyone yet.", `href="/shares"`},
 		},
 	})
 }
