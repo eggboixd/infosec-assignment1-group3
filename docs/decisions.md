@@ -892,3 +892,86 @@ signs. How teammates call it: [keypairs.md](keypairs.md).
   signing branches must add a limit (D44).
 - **Memory clearing is best effort** (D13). Go strings (the password from the form) can't be cleared at all, and
   `rsa.PrivateKey` keeps its values in `big.Int`s.
+
+## Share requests (`feature/share-requests`)
+
+Assignment 2, part 1: a user can request to see another user's private data, and the owner decides. The share key
+itself (generating it, re-wrapping DEKs, RSA-OAEP to the requester, storing it) is `feature/share-keys`; the two meet
+at the `Granter` interface and `Service.Active` ([sharing.md](sharing.md)). Full design:
+[superpowers/specs/2026-11-28-share-requests-design.md](superpowers/specs/2026-11-28-share-requests-design.md).
+
+### D53. One request covers all of the owner's private data
+
+- **Decision:** a request names only the owner (by username). Approving it shares the applicant data and every
+  uploaded file. There is no per-field or per-file choice.
+- **Alternatives:** the requester picks fields and files; the owner picks what to include when approving.
+- **Why:** the brief asks for "the private data of other users (including the images and documents)", which is all of
+  it. One scope keeps the request record, the approve form and the share-key re-wrapping simple, and leaves no
+  "partly shared" state to get wrong.
+- **Trade-offs:** an owner who would share only their CV has to share everything or nothing.
+
+### D54. Expiry is decided by time on every read, not by a background job
+
+- **Decision:** every request has `expires_at`: `created_at + 7 days` while pending, `decided_at + 1/7/30 days`
+  (owner's choice) once approved. A pending or approved request with `now >= expires_at` is *effectively* expired
+  everywhere (`Request.EffectiveStatus`), whatever the stored status says. The stored status is updated to `expired`
+  lazily, when the pair gets a new request or a page lists it; for an approved request that also calls
+  `Granter.Destroy`. Records are never deleted.
+- **Alternatives:** a TTL index (deletes the record); a periodic sweeper goroutine; checking expiry only when shared
+  data is opened.
+- **Why:** access must end at the exact second, not when a job next runs (the TTL monitor runs about once a minute and
+  would also erase the history the report needs). Computing it on read needs no extra process and can't be forgotten:
+  `Active`, approve, reject, revoke and cancel all go through the same check.
+- **Trade-offs:** share material of an expired approval stays stored until the request is next touched. It's unusable
+  in that window, because `Active` refuses it, but it isn't deleted yet.
+
+### D55. Compare-and-set transitions, and Grant before approve
+
+- **Decision:** every status change is one conditional `UpdateOne` on `_id`, the acting user's field (`owner_id` or
+  `requester_id`), the expected status and `expires_at > now`. Approve calls `Granter.Grant` first and changes the
+  status second. If that change loses a race, the request is re-read: if a concurrent approve (a double click) won,
+  nothing is destroyed; otherwise the new material is destroyed. Revoke changes the status first, which cuts access,
+  then destroys.
+- **Alternatives:** read-modify-write; a MongoDB transaction around the request and the share material; approve first
+  and grant second.
+- **Why:** two clicks, or an approve racing a cancel, can't both win, and an action on a request that just expired
+  fails cleanly. Granting first means a request shown as approved always has a share key; the opposite order would
+  leave "approved, but no key" whenever Grant fails. Transactions need a replica set, which our Compose stack doesn't
+  run. Material created by a losing approve is harmless, because `Active` gates every use of it.
+- **Trade-offs:** Grant's work is wasted when the approve loses a race. Grant must be idempotent per request ID,
+  because a retry runs it again.
+
+### D56. At most one open request per pair, enforced by a partial unique index
+
+- **Decision:** the `share_requests` index `open_pair_unique` is unique on `{requester_id, owner_id}` for documents
+  whose status is `pending` or `approved`. Before inserting, `Send` marks the pair's lapsed-but-stored-open requests as
+  `expired`. A duplicate-key error is `ErrAlreadyOpen` (409). Rejected, cancelled, revoked and expired requests don't
+  block asking again.
+- **Alternatives:** check-then-insert in Go only; one document per pair that is reused.
+- **Why:** a Go check alone has a race (two sends at once). The index makes the database the referee, the same pattern
+  as D38 and D43. Keeping one document per request keeps the history.
+- **Trade-offs:** an approval that expired but hasn't been marked yet would block a new request if `Send` didn't mark
+  it first, so `Send` does one extra query per call.
+
+### D57. Requests are scoped to the acting user; usernames can be discovered
+
+- **Decision:** every lookup filters on the request ID **and** the acting user's side: owner for approve, reject and
+  revoke; requester for cancel and `Active`. An unknown ID, a malformed ID and someone else's request all return the
+  same 404. Sending to a username that doesn't exist says so ("No user with that username."). Sending is limited to 10
+  per requester per hour (in memory, like D29) and 20 open pending requests.
+- **Alternatives:** check ownership after loading (403 for someone else's request); a generic "if that user exists,
+  they'll see your request" message.
+- **Why:** a 403 would confirm that a request ID exists. The generic message wouldn't hide anything, because the
+  sender's own list shows each request with its recipient. So we name the error and bound probing with the rate limit
+  instead.
+- **Trade-offs:** a logged-in user can learn whether up to 10 usernames per hour exist. Usernames aren't private data
+  in this app (they're shown in the nav and to the people you share with).
+
+## Known limitations (share requests)
+
+- **No owner password on approve.** The share key is encrypted to the requester's *public* key and the DEKs are
+  unwrapped with the master key, so approving needs no private key of the owner's. If `feature/share-keys` needs one,
+  the approve form gains a password field and a rate limit.
+- **Files uploaded after approval** are shared only if `feature/share-keys` re-wraps them; that is its decision.
+- **The send rate limit is in memory** (resets on restart, not shared between replicas), as D29.
+- **Until `feature/share-keys` is merged**, `main.go` wires `sharing.StubGranter`, which creates no key.
