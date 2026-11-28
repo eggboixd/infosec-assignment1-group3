@@ -20,6 +20,7 @@ const (
 	ApplicationsCollection  = "applications"
 	KeypairsCollection      = "keypairs"
 	ShareRequestsCollection = "share_requests"
+	ShareKeysCollection     = "share_keys"
 )
 
 // indexes lists the indexes each collection needs. CreateMany is idempotent
@@ -59,6 +60,11 @@ func indexes() map[string][]mongo.IndexModel {
 				SetPartialFilterExpression(bson.D{{Key: "status", Value: bson.D{{Key: "$in", Value: bson.A{"pending", "approved"}}}}})},
 			{Keys: bson.D{{Key: "owner_id", Value: 1}, {Key: "created_at", Value: -1}}, Options: options.Index().SetName("owner_created")},
 			{Keys: bson.D{{Key: "requester_id", Value: 1}, {Key: "created_at", Value: -1}}, Options: options.Index().SetName("requester_created")},
+		},
+		// One set of share material per request. The unique index makes
+		// Grant create-if-absent when two approves race (docs/sharekeys.md).
+		ShareKeysCollection: {
+			{Keys: bson.D{{Key: "request_id", Value: 1}}, Options: options.Index().SetName("request_id_unique").SetUnique(true)},
 		},
 		// auth.SessionStore writes "expires_at" as a date, so this TTL index
 		// removes expired sessions.
