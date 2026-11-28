@@ -70,15 +70,8 @@ revoke and expiry take effect immediately. Declare a small interface for it in y
 
 ## Wiring
 
-In `cmd/server/main.go`, replace the stub:
-
-```go
-// TODO(feature/share-keys): pass the real Granter instead of the stub.
-shareSvc := sharing.NewService(sharing.NewStore(…), users, keySvc, sharing.StubGranter{})
-```
-
-with your `Granter`, pass `shareSvc` (as your `Active` interface) to your handler, and delete
-`internal/sharing/stub.go`.
+Done in `feature/share-keys`: `cmd/server/main.go` passes `sharekey.Service` as the `Granter` and `shareSvc` to
+`sharekey.NewHandler` as its `Active` check. See [sharekeys.md](sharekeys.md).
 
 ## Where your links go
 
