@@ -41,13 +41,17 @@ type Grant struct {
 
 - **`Grant`** is called when the owner clicks Approve, **before** the status changes. Return an error and the
   request stays pending, and the owner sees "Couldn't create the share key. Please try again." It must be
-  **idempotent per `RequestID`**: a retry replaces or reuses the earlier material and never leaves two.
+  **create-if-absent per `RequestID`**: if material for that ID already exists, return nil and change nothing. Two
+  tabs approving the same request both run `Grant`, and replacing the key would break the one the owner already
+  sent over WhatsApp. `ExpiresAt` is advisory: `Active` is the only authority on access.
 - **No password is passed.** Encrypting to the requester's public key (`keypair.Service.PublicKey(ctx, RequesterID,
   keypair.Encryption)`) and unwrapping the owner's DEKs with the master key need no private key of the owner's. If
   your design needs the owner's password, tell Vinno: the approve form and `Grant` change together.
 - **`Destroy`** deletes everything you stored for that request. Deleting nothing is not an error. It's called after
-  revoke, when an approved request is found expired, and when an approve loses a race to a cancel or reject. A
-  failure is only logged, so don't rely on it for security: rely on `Active`.
+  revoke, when an approved request is found expired, and when an approve fails after `Grant` (the request expired
+  while `Grant` ran, a cancel or reject won the race, or the status update failed), but only after a re-read shows
+  the request is not approved. It runs with the request's cancellation removed and a 10-second timeout. A failure is
+  only logged, so don't rely on it for security: rely on `Active`.
 
 ## What you call: `sharing.Service.Active`
 

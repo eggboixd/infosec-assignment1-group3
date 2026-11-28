@@ -257,8 +257,9 @@ type Granter interface {
     // Grant generates the share key for an approved request, re-wraps the
     // owner's DEKs under it, encrypts it to the requester's public
     // encryption key, and stores what it needs, keyed by g.RequestID.
-    // It must be idempotent per RequestID: a retry after a failure replaces
-    // or reuses the earlier material, never leaves two.
+    // It must be create-if-absent per RequestID: if material exists, return
+    // nil and change nothing, so a second approve can't replace the key the
+    // owner already sent. ExpiresAt is advisory; Active is the authority.
     Grant(ctx context.Context, g Grant) error
     // Destroy deletes all share material for requestID. Deleting nothing is
     // not an error.

@@ -923,23 +923,27 @@ at the `Granter` interface and `Service.Active` ([sharing.md](sharing.md)). Full
   would also erase the history the report needs). Computing it on read needs no extra process and can't be forgotten:
   `Active`, approve, reject, revoke and cancel all go through the same check.
 - **Trade-offs:** share material of an expired approval stays stored until the request is next touched. It's unusable
-  in that window, because `Active` refuses it, but it isn't deleted yet.
+  in that window, because `Active` refuses it, but it isn't deleted yet. If `Destroy` fails (it is logged and runs
+  detached from the request with a 10-second timeout), nothing retries it, and the unusable material stays stored.
 
 ### D55. Compare-and-set transitions, and Grant before approve
 
 - **Decision:** every status change is one conditional `UpdateOne` on `_id`, the acting user's field (`owner_id` or
-  `requester_id`), the expected status and `expires_at > now`. Approve calls `Granter.Grant` first and changes the
-  status second. If that change loses a race, the request is re-read: if a concurrent approve (a double click) won,
-  nothing is destroyed; otherwise the new material is destroyed. Revoke changes the status first, which cuts access,
-  then destroys.
+  `requester_id`) and the expected status; user actions (approve, reject, revoke, cancel) also require
+  `expires_at > now`, while marking a lapsed request `expired` doesn't. Approve calls `Granter.Grant` first and
+  changes the status second. If that change loses a race **or fails**, the request is re-read, and the new material
+  is destroyed only if the re-read succeeds and shows the request isn't approved: a concurrent approve (a double
+  click) may have won, and a failed write may still have been applied. `Grant` is create-if-absent per request, so
+  the losing approve can't replace the winner's key. Revoke changes the status first, which cuts access, then
+  destroys, detached from the request's cancellation.
 - **Alternatives:** read-modify-write; a MongoDB transaction around the request and the share material; approve first
   and grant second.
 - **Why:** two clicks, or an approve racing a cancel, can't both win, and an action on a request that just expired
   fails cleanly. Granting first means a request shown as approved always has a share key; the opposite order would
   leave "approved, but no key" whenever Grant fails. Transactions need a replica set, which our Compose stack doesn't
   run. Material created by a losing approve is harmless, because `Active` gates every use of it.
-- **Trade-offs:** Grant's work is wasted when the approve loses a race. Grant must be idempotent per request ID,
-  because a retry runs it again.
+- **Trade-offs:** Grant's work is wasted when the approve loses a race. When the re-read fails, material may be left
+  on a request that isn't approved; `Active` refuses it, but it isn't deleted.
 
 ### D56. At most one open request per pair, enforced by a partial unique index
 

@@ -289,3 +289,65 @@ func TestActive(t *testing.T) {
 		})
 	}
 }
+
+// Final review I1: a write that MongoDB applied but reported as failed (a
+// timeout) must not destroy the material of a now-approved request.
+func TestApproveTransitionErrorAfterApplyKeepsMaterial(t *testing.T) {
+	e, r := pendingFromVinno(t)
+	e.store.transitionErr = func(transition) (bool, error) { return true, errFake }
+	if _, err := e.svc.Approve(context.Background(), e.u("rayen").ID, r.ID, "7d"); err == nil {
+		t.Fatal("Approve succeeded, want an error")
+	}
+	if st := e.store.get(r.ID).Status; st != StatusApproved {
+		t.Fatalf("stored status = %q, want approved (the write was applied)", st)
+	}
+	if n := e.g.destroyCount(r.ID); n != 0 {
+		t.Fatalf("Destroy called %d times, want 0", n)
+	}
+}
+
+// A write that failed without applying leaves a pending request: its stray
+// material may be destroyed.
+func TestApproveTransitionErrorNotAppliedDestroys(t *testing.T) {
+	e, r := pendingFromVinno(t)
+	e.store.transitionErr = func(transition) (bool, error) { return false, errFake }
+	if _, err := e.svc.Approve(context.Background(), e.u("rayen").ID, r.ID, "7d"); err == nil {
+		t.Fatal("Approve succeeded, want an error")
+	}
+	if st := e.store.get(r.ID).Status; st != StatusPending {
+		t.Fatalf("stored status = %q, want pending", st)
+	}
+	if n := e.g.destroyCount(r.ID); n != 1 {
+		t.Fatalf("Destroy called %d times, want 1", n)
+	}
+}
+
+// Final review I1, scenario B: a double click whose loser can't re-read the
+// request must not destroy the winner's material.
+func TestApproveLostRaceReReadFailsKeepsMaterial(t *testing.T) {
+	e, r := pendingFromVinno(t)
+	e.store.beforeTransition = func(transition) {
+		e.store.set(r.ID, func(r *Request) { r.Status = StatusApproved })
+		e.store.findErr = func() error { return errFake }
+	}
+	if _, err := e.svc.Approve(context.Background(), e.u("rayen").ID, r.ID, "7d"); err == nil {
+		t.Fatal("Approve succeeded, want an error")
+	}
+	if n := e.g.destroyCount(r.ID); n != 0 {
+		t.Fatalf("Destroy called %d times, want 0", n)
+	}
+}
+
+// Final review M1: a cancelled request context (the user navigated away)
+// must not stop the share material being deleted after a revoke.
+func TestRevokeDestroysWithCancelledRequestContext(t *testing.T) {
+	e, r := approved(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := e.svc.Revoke(ctx, e.u("rayen").ID, r.ID); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.g.destroyCtxErrs) != 1 || e.g.destroyCtxErrs[0] != nil {
+		t.Fatalf("Destroy ctx errors = %v, want one call with a live context", e.g.destroyCtxErrs)
+	}
+}

@@ -40,22 +40,36 @@ func (s *Service) Approve(ctx context.Context, ownerID, requestID bson.ObjectID,
 		From: StatusPending, To: StatusApproved, Now: s.now(), RequireUnexpired: true,
 		DecidedAt: &decided, ExpiresAt: &exp,
 	})
-	if err != nil {
-		s.destroy(ctx, r.ID)
-		return nil, err
-	}
-	if !ok {
+	if err != nil || !ok {
+		// Destroy only once a re-read proves the request isn't approved. A
+		// failed write may still have been applied (a timeout), and a lost
+		// race may have been lost to another approve (a double click):
+		// either way the material now belongs to an approved request.
+		// Material left on a request that isn't approved is harmless,
+		// because Active gates every use of it.
 		cur, ferr := s.store.Find(ctx, r.ID, actorOwner, ownerID)
-		if ferr == nil && cur.Status == StatusApproved {
-			// A concurrent approve (a double click) won. Its material is
-			// keyed by the same request ID: leave it.
+		if ferr != nil {
+			slog.Error("sharing: re-read after approve", "request_id", r.ID.Hex(), "error", ferr)
+			if err != nil {
+				return nil, err
+			}
+			return nil, ferr
+		}
+		if cur.Status == StatusApproved {
+			if err != nil {
+				return nil, err
+			}
 			return nil, ErrNotPending
 		}
 		s.destroy(ctx, r.ID)
-		if ferr == nil && cur.EffectiveStatus(s.now()) == StatusExpired {
+		switch {
+		case err != nil:
+			return nil, err
+		case cur.EffectiveStatus(s.now()) == StatusExpired:
 			return nil, ErrExpired
+		default:
+			return nil, ErrNotPending
 		}
-		return nil, ErrNotPending
 	}
 
 	r.Status, r.DecidedAt, r.ExpiresAt = StatusApproved, &decided, exp

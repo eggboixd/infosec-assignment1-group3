@@ -24,6 +24,12 @@ type memStore struct {
 	seq              int
 	order            map[bson.ObjectID]int
 	beforeTransition func(t transition)
+	// transitionErr, if set and returning an error, makes Transition fail
+	// with it; applied says whether the write still happened (a timeout
+	// after MongoDB applied the update).
+	transitionErr func(t transition) (applied bool, err error)
+	// findErr, if set, makes Find fail with what it returns.
+	findErr func() error
 }
 
 func newMemStore() *memStore {
@@ -56,6 +62,11 @@ func actorOf(r *Request, actor string) bson.ObjectID {
 }
 
 func (m *memStore) Find(_ context.Context, id bson.ObjectID, actor string, actorID bson.ObjectID) (*Request, error) {
+	if m.findErr != nil {
+		if err := m.findErr(); err != nil {
+			return nil, err
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	r, ok := m.reqs[id]
@@ -114,6 +125,15 @@ func (m *memStore) ListLapsed(_ context.Context, requesterID, ownerID bson.Objec
 func (m *memStore) Transition(_ context.Context, t transition) (bool, error) {
 	if m.beforeTransition != nil {
 		m.beforeTransition(t)
+	}
+	if m.transitionErr != nil {
+		if applied, err := m.transitionErr(t); err != nil {
+			if applied {
+				m.transitionErr = nil
+				_, _ = m.Transition(context.Background(), t)
+			}
+			return false, err
+		}
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -189,6 +209,8 @@ type fakeGranter struct {
 	grantErr   error
 	destroyErr error
 	onGrant    func() // runs inside Grant, e.g. to move the clock
+	// destroyCtxErrs records ctx.Err() of each Destroy call.
+	destroyCtxErrs []error
 }
 
 func (g *fakeGranter) Grant(_ context.Context, gr Grant) error {
@@ -201,10 +223,11 @@ func (g *fakeGranter) Grant(_ context.Context, gr Grant) error {
 	return g.grantErr
 }
 
-func (g *fakeGranter) Destroy(_ context.Context, id bson.ObjectID) error {
+func (g *fakeGranter) Destroy(ctx context.Context, id bson.ObjectID) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.destroyed = append(g.destroyed, id)
+	g.destroyCtxErrs = append(g.destroyCtxErrs, ctx.Err())
 	return g.destroyErr
 }
 

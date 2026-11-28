@@ -41,7 +41,10 @@ type Granter interface {
 	// Grant generates the share key for an approved request, re-wraps the
 	// owner's DEKs under it, encrypts it to the requester's public
 	// encryption key and stores what it needs, keyed by g.RequestID. It must
-	// be idempotent per RequestID.
+	// be create-if-absent per RequestID: if material for that ID exists, it
+	// returns nil and changes nothing, so a second approve (a double click)
+	// can't replace the key the owner already sent. g.ExpiresAt is
+	// advisory; Service.Active is the only authority on access.
 	Grant(ctx context.Context, g Grant) error
 	// Destroy deletes all share material for requestID. Deleting nothing is
 	// not an error.
@@ -224,8 +227,16 @@ func (s *Service) markExpired(ctx context.Context, r *Request) {
 	}
 }
 
-// destroy calls Granter.Destroy and logs a failure.
+// destroyTimeout bounds Granter.Destroy, which runs detached from the
+// request's cancellation.
+const destroyTimeout = 10 * time.Second
+
+// destroy calls Granter.Destroy and logs a failure. It ignores the request's
+// cancellation (the user navigating away), because the status has already
+// changed and nothing will look for this material again.
 func (s *Service) destroy(ctx context.Context, id bson.ObjectID) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), destroyTimeout)
+	defer cancel()
 	if err := s.granter.Destroy(ctx, id); err != nil {
 		slog.Error("sharing: destroy share material", "request_id", id.Hex(), "error", err)
 	}
