@@ -62,6 +62,12 @@ minute returns 429; wait 60 seconds.
 | GET | `/profile?alg=aes\|des\|rc4` | yes | 200 | HTML |
 | POST | `/profile` | yes | 303 → `/profile?alg=aes` | — |
 | GET | `/keys/encryption\|signing/public.pem` | yes | 200 | PEM public key (attachment) |
+| GET | `/shares?done=` | yes | 200 | HTML |
+| POST | `/shares/requests` | yes | 303 → `/shares?done=sent` | — |
+| POST | `/shares/requests/:id/approve` | yes (owner) | 303 → `/shares?done=approved` | — |
+| POST | `/shares/requests/:id/reject` | yes (owner) | 303 → `/shares?done=rejected` | — |
+| POST | `/shares/requests/:id/revoke` | yes (owner) | 303 → `/shares?done=revoked` | — |
+| POST | `/shares/requests/:id/cancel` | yes (requester) | 303 → `/shares?done=cancelled` | — |
 | GET | `/files` | yes | 200 | HTML |
 | POST | `/files` | yes | 303 → `/files` | — |
 | GET | `/files/:id/download?alg=aes\|des\|rc4` | yes | 200 | the file |
@@ -363,6 +369,34 @@ page shows both in a "My keys" card.
 | Log in again | log out and in again | same fingerprints (keys are created once) |
 | Tampered public key | flip a byte of `encryption.public_der` (§5.7), then `GET /keys/encryption/public.pem` | **422**, `integrity check`; the profile page still shows the applicant data with `couldn't be loaded` |
 
+### 4.9 Share requests — `/shares`
+
+A user asks another user for access to all of their private data; the owner approves (for 1, 7 or 30 days), rejects
+or later revokes (docs/decisions.md D53–D57, [docs/sharing.md](sharing.md)). Use two accounts, `alice` (requester) and
+`bob` (owner), in two browsers or two Postman cookie jars. Errors re-render `/shares` with the message shown.
+
+| Case | Request | Expect |
+|---|---|---|
+| Page | `GET /shares` | 200, `Data sharing`, `Request access`, `Requests to you`, `Your requests` |
+| Send | as alice, `POST /shares/requests` `username=bob&reason=review` | 303 → `/shares?done=sent`; alice's list shows bob, `Pending`, `Lapses` 7 days later |
+| Username is normalised | `username=%20BOB%20` | 303 (same as `bob`) |
+| Unknown user | `username=nobody` | **404**, `No user with that username.` |
+| Yourself | as alice, `username=alice` | **400**, `You can't request your own data.` |
+| Reason too long | `reason` of 201 characters | **400**, `Keep the reason under 200 characters.` |
+| Duplicate | send to bob again while pending | **409**, `You already have an open request to this user.` |
+| Rate limit | 11 sends within an hour | **429** on the 11th |
+| Inbox | as bob, `GET /shares` | alice's row with her reason (HTML escaped), her encryption-key fingerprint (same as on alice's `/profile`), `Approve` with `7 days` selected, `Reject` |
+| Approve | as bob, `POST /shares/requests/{{requestId}}/approve` `duration=1d` | 303 → `/shares?done=approved`; both pages show `Approved`, `Access until` one day later |
+| Bad duration | `duration=2d` | **400**, `Choose 1, 7 or 30 days.` |
+| Approve by requester | as alice, same URL | **404**, `We couldn't find that request.` |
+| Malformed ID | `POST /shares/requests/nothex/approve` | **404** |
+| Approve twice | as bob, approve again | **409**, `That request has already been answered.` |
+| Revoke | as bob, `POST /shares/requests/{{requestId}}/revoke` | 303 → `/shares?done=revoked`; both pages show `Revoked`; alice can send a new request |
+| Reject | new request, as bob `POST …/reject` | 303 → `/shares?done=rejected`; `Rejected` |
+| Cancel | new request, as alice `POST …/cancel` | 303 → `/shares?done=cancelled`; as bob `POST …/cancel` gives **404** |
+| Expiry | set `expires_at` in the past with mongosh (§5.8), reload | `Expired`; approve or revoke gives **409**, `That request has expired.` |
+| Forged flash code | `GET /shares?done=<script>` | 200, no message |
+
 ## 5. Checking the encryption
 
 MongoDB and MinIO are not exposed on the host. The commands below run inside their containers from the repository
@@ -490,4 +524,14 @@ To check tampering, flip a byte of a public key, then download it (422):
 
 ```bash
 M 'const d=db.keypairs.findOne(); const b=Buffer.from(d.encryption.public_der.buffer); b[40]^=1; db.keypairs.updateOne({_id:d._id},{$set:{"encryption.public_der":BinData(0,b.toString("base64"))}})'
+```
+
+### 5.8 Share requests hold no secrets
+
+```js
+db.share_requests.find({}, {reason: 0}).sort({created_at: -1})
+// requester_id, owner_id, requester_name, owner_name, status, created_at, decided_at, expires_at, ended_at
+// No share key, DEK or private data. To test expiry:
+db.share_requests.updateOne({_id: ObjectId("<id>")}, {$set: {expires_at: new Date(Date.now() - 1000)}})
+db.share_requests.getIndexes()   // open_pair_unique has partialFilterExpression {status: {$in: ["pending","approved"]}}
 ```
