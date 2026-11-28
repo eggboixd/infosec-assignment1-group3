@@ -1,0 +1,89 @@
+{{define "shared.html"}}{{template "header" .}}
+{{/* Data:
+       .Request  *sharing.Request, already checked with sharing.Service.Active
+       .Shared   *sharekey.Shared, nil until the share key is imported:
+                 .Profile (*profile.PrivateData or nil) and .Files
+       .Alg      "aes", "des" or "rc4" */}}
+{{- $id := ""}}{{$owner := ""}}{{with .Request}}{{$id = .ID.Hex}}{{$owner = .OwnerName}}{{end}}{{$alg := print (or .Alg "aes")}}
+<section class="card">
+  <div class="page-head">
+    <div class="gembi" data-gembi data-base-mood="smiling">{{template "mascot" "smiling"}}</div>
+    <div>
+      <h1>{{$owner}}'s data</h1>
+      {{with .Request}}<p>Shared with you until {{.ExpiresAt.Format "2 Jan 2006, 15:04"}}, unless {{$owner}} revokes it first.</p>{{end}}
+    </div>
+  </div>
+</section>
+
+{{if not .Shared}}
+<section class="card" aria-labelledby="import-title">
+  <h2 id="import-title">Import the share key</h2>
+  <p>Paste the encrypted share key {{$owner}} sent you. Your password unlocks your private key, which decrypts it. The app stores the key only after it checks that it belongs to this request.</p>
+  <form method="post" action="/shares/requests/{{$id}}/import" class="stack" data-gembi-busy="Decrypting…">
+    <label>Encrypted share key
+      <textarea name="key" rows="8" required maxlength="1024" spellcheck="false" autocomplete="off"></textarea>
+    </label>
+    <label>Your password
+      <input name="password" type="password" autocomplete="current-password" required maxlength="128" data-gembi-cover>
+    </label>
+    <button type="submit" class="btn--primary">Import key</button>
+  </form>
+</section>
+{{else}}
+<section class="card" aria-labelledby="alg-title">
+  <h2 id="alg-title">Decrypt with</h2>
+  <form method="get" action="/shares/requests/{{$id}}/data" class="inline-form">
+    <label>Algorithm
+      <select name="alg" data-autosubmit>
+        <option value="aes"{{if eq $alg "aes"}} selected{{end}}>AES-256 (CTR mode)</option>
+        <option value="des"{{if eq $alg "des"}} selected{{end}}>DES (CTR mode)</option>
+        <option value="rc4"{{if eq $alg "rc4"}} selected{{end}}>RC4 (stream cipher)</option>
+      </select>
+    </label>
+    <button type="submit" data-autosubmit-button>Show</button>
+  </form>
+</section>
+
+<section class="card" aria-labelledby="profile-title">
+  <h2 id="profile-title">Applicant data</h2>
+  {{with .Shared.Profile}}
+  <table class="responsive-table">
+    <tbody>
+      <tr><th scope="row">Full name</th><td>{{.FullName}}</td></tr>
+      <tr><th scope="row">NIK</th><td>{{.NIK}}</td></tr>
+      <tr><th scope="row">Date of birth</th><td>{{.DateOfBirth}}</td></tr>
+      <tr><th scope="row">Address</th><td>{{.Address}}</td></tr>
+      <tr><th scope="row">Phone</th><td>{{.Phone}}</td></tr>
+      <tr><th scope="row">Email</th><td>{{.Email}}</td></tr>
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">{{$owner}} had no applicant data when they approved.</p>
+  {{end}}
+</section>
+
+<section class="card" aria-labelledby="files-title">
+  <h2 id="files-title">Images and documents</h2>
+  {{if .Shared.Files}}
+  <table class="responsive-table">
+    <thead>
+      <tr><th scope="col">File</th><th scope="col">Document</th><th scope="col">Size</th><th scope="col">Action</th></tr>
+    </thead>
+    <tbody>
+      {{range .Shared.Files}}
+      <tr>
+        <td data-label="File">{{if .NameOK}}{{.Name}}{{else}}<span role="alert">{{.Name}}</span>{{end}}</td>
+        <td data-label="Document">{{with .SlotLabel}}{{.}}{{else}}<span class="muted">{{.Kind}}</span>{{end}}</td>
+        <td data-label="Size">{{humanBytes .Size}}</td>
+        <td data-label="Action"><a class="btn btn--small" href="/shares/requests/{{$id}}/files/{{.ID.Hex}}?alg={{$alg}}">Download</a></td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">{{$owner}} had no files when they approved.</p>
+  {{end}}
+</section>
+{{end}}
+<p><a class="btn" href="/shares">Back to data sharing</a></p>
+{{template "footer" .}}{{end}}

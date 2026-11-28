@@ -62,6 +62,7 @@
               <button type="submit" class="btn--danger btn--small">Reject</button>
             </form>
           {{else if eq .Status "approved"}}
+            <a class="btn btn--small" href="/shares/requests/{{.ID.Hex}}/key">Show encrypted key</a>
             <form method="post" action="/shares/requests/{{.ID.Hex}}/revoke" class="inline" data-confirm="Revoke {{.RequesterName}}'s access now?">
               <button type="submit" class="btn--danger btn--small">Revoke</button>
             </form>
@@ -94,6 +95,8 @@
           <form method="post" action="/shares/requests/{{.ID.Hex}}/cancel" class="inline">
             <button type="submit" class="btn--ghost btn--small">Cancel</button>
           </form>
+          {{else if eq .Status "approved"}}
+          <a class="btn btn--primary btn--small" href="/shares/requests/{{.ID.Hex}}/data">Import key / open data</a>
           {{else}}<span class="muted">none</span>{{end}}
         </td>
       </tr>

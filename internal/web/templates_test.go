@@ -17,6 +17,7 @@ import (
 	"github.com/eggboixd/infosec-assignment1-group3/internal/files"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/keypair"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
+	"github.com/eggboixd/infosec-assignment1-group3/internal/sharekey"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/sharing"
 )
 
@@ -576,8 +577,11 @@ func TestTemplatesAreCSPSafe(t *testing.T) {
 		"Sent":         shareSent,
 		"Durations":    shareDurations,
 		"Default":      "7d",
+		"Key":          shareKeyView,
+		"Request":      &shareSent[0].Request,
+		"Shared":       sharedData,
 	}
-	for _, page := range []string{"home.html", "login.html", "register.html", "files.html", "profile.html", "benchmarks.html", "error.html", "shares.html"} {
+	for _, page := range []string{"home.html", "login.html", "register.html", "files.html", "profile.html", "benchmarks.html", "error.html", "shares.html", "sharekey.html", "shared.html"} {
 		for _, data := range []map[string]any{{}, full} {
 			out := renderPage(t, page, data)
 			for _, v := range cspViolations {
@@ -689,6 +693,8 @@ func TestSharesTemplate(t *testing.T) {
 				"couldn't be verified",
 				"Access until 5 Dec 2026, 14:00",
 				`/shares/requests/` + bson.ObjectID{3}.Hex() + `/revoke`,
+				`/shares/requests/` + bson.ObjectID{3}.Hex() + `/key`,
+				`/shares/requests/` + bson.ObjectID{4}.Hex() + `/data`,
 				"Expired",
 			},
 			notWant: []string{
@@ -696,13 +702,48 @@ func TestSharesTemplate(t *testing.T) {
 				`/shares/requests/` + bson.ObjectID{2}.Hex() + `/approve`,
 				`/shares/requests/` + bson.ObjectID{4}.Hex() + `/cancel`,
 			},
-			count: map[string]int{`/approve"`: 1, `/reject"`: 2, `/revoke"`: 1, `/cancel"`: 0},
+			count: map[string]int{`/approve"`: 1, `/reject"`: 2, `/revoke"`: 1, `/cancel"`: 0, `/key"`: 1, `/data"`: 1},
 		},
 		{
 			name: "empty lists",
 			page: "shares.html",
 			data: map[string]any{"User": student},
 			want: []string{"Nobody has asked for your data.", "You haven't asked anyone yet.", `href="/shares"`},
+		},
+	})
+}
+
+var (
+	shareKeyView = &sharekey.KeyView{RequestID: bson.ObjectID{3}, Encoded: "QUJD+w==", Fingerprint: "1a2b 3c4d", CreatedAt: shareExp}
+	sharedData   = &sharekey.Shared{
+		Profile: &profile.PrivateData{FullName: "<b>Rayen</b>", NIK: "3374010101990001"},
+		Files:   []sharekey.FileView{{ID: testFileID, Name: "ktp.png", NameOK: true, SlotLabel: "KTP (ID card scan)", Size: 1536}},
+	}
+)
+
+func TestShareKeyTemplates(t *testing.T) {
+	req := &shareSent[0].Request // approved, owner rayen
+	base := "/shares/requests/" + req.ID.Hex()
+	runPageCases(t, []pageCase{
+		{
+			name: "owner key page",
+			page: "sharekey.html",
+			data: map[string]any{"User": student, "Key": shareKeyView},
+			want: []string{"QUJD&#43;w==", "<code>1a2b 3c4d</code>", "readonly", "hasn't imported it yet"},
+		},
+		{
+			name:    "import form before import",
+			page:    "shared.html",
+			data:    map[string]any{"User": student, "Request": req},
+			want:    []string{"rayen's data", `action="` + base + `/import"`, `name="key"`, `type="password"`},
+			notWant: []string{"Applicant data"},
+		},
+		{
+			name:    "data after import",
+			page:    "shared.html",
+			data:    map[string]any{"User": student, "Request": req, "Shared": sharedData, "Alg": "des"},
+			want:    []string{"&lt;b&gt;Rayen&lt;/b&gt;", "3374010101990001", "KTP (ID card scan)", base + "/files/" + testFileID.Hex() + "?alg=des", `<option value="des" selected>`},
+			notWant: []string{"<b>Rayen</b>", `action="` + base + `/import"`},
 		},
 	})
 }
