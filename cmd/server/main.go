@@ -21,6 +21,7 @@ import (
 	"github.com/eggboixd/infosec-assignment1-group3/internal/platform/minio"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/platform/mongodb"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/profile"
+	"github.com/eggboixd/infosec-assignment1-group3/internal/sharekey"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/sharing"
 	"github.com/eggboixd/infosec-assignment1-group3/internal/web"
 )
@@ -120,8 +121,12 @@ func run() error {
 	sessions := auth.NewSessionManager(auth.NewSessionStore(db.Collection(mongodb.SessionsCollection)), cfg.SessionSecret, cfg.CookieSecure)
 	profileSvc := profile.NewService(profile.NewStore(db.Collection(mongodb.ProfilesCollection)), enc, nikBlindKey, benchStore)
 	filesSvc := files.NewService(files.NewStore(db.Collection(mongodb.FilesCollection)), objects, enc, benchStore)
-	// TODO(feature/share-keys): pass the real Granter instead of the stub.
-	shareSvc := sharing.NewService(sharing.NewStore(db.Collection(mongodb.ShareRequestsCollection)), users, keySvc, sharing.StubGranter{})
+	shareKeySvc, err := sharekey.NewService(sharekey.NewStore(db.Collection(mongodb.ShareKeysCollection)), keySvc,
+		profile.NewStore(db.Collection(mongodb.ProfilesCollection)), files.NewStore(db.Collection(mongodb.FilesCollection)), objects, cfg.MasterKey)
+	if err != nil {
+		return err
+	}
+	shareSvc := sharing.NewService(sharing.NewStore(db.Collection(mongodb.ShareRequestsCollection)), users, keySvc, shareKeySvc)
 	applicationsSvc := applications.NewService(applications.NewStore(db.Collection(mongodb.ApplicationsCollection)), profileSvc, filesSvc, enc, applicationIndexKey)
 
 	engine, err := web.NewEngine(web.Options{
@@ -138,6 +143,7 @@ func run() error {
 			profile.NewHandler(profileSvc).WithKeys(keySvc),
 			keypair.NewHandler(keySvc),
 			sharing.NewHandler(shareSvc),
+			sharekey.NewHandler(shareKeySvc, shareSvc),
 			files.NewHandler(filesSvc),
 			benchmark.NewHandler(benchStore),
 		},

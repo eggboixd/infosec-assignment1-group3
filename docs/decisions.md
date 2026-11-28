@@ -978,4 +978,85 @@ at the `Granter` interface and `Service.Active` ([sharing.md](sharing.md)). Full
   the approve form gains a password field and a rate limit.
 - **Files uploaded after approval** are shared only if `feature/share-keys` re-wraps them; that is its decision.
 - **The send rate limit is in memory** (resets on restart, not shared between replicas), as D29.
-- **Until `feature/share-keys` is merged**, `main.go` wires `sharing.StubGranter`, which creates no key.
+
+## Share keys (`feature/share-keys`)
+
+Assignment 2, part 2: the requested user's share key, its delivery to the requester and how it is stored. How it works
+step by step: [sharekeys.md](sharekeys.md).
+
+### D58. A fresh share key per request re-wraps the owner's DEKs; the data isn't re-encrypted
+
+- **Decision:** `Grant` generates a 256-bit key K with `crypto/rand` for each approved request. For every profile
+  field and every file, in all three algorithms, it unwraps the DEK and MAC key with the master key and stores them
+  again wrapped under K (`crypto.WrapKey(K, …)`, AES-256-GCM). The ciphertext isn't touched.
+- **Alternatives:** decrypt everything and encrypt it again under K; share the owner's DEKs as they are (wrapped under
+  the master key); one long-lived share key per owner.
+- **Why:** re-wrapping is a few hundred bytes of work per item, while re-encrypting would copy every file, including
+  2 GiB videos. Sharing the master-wrapped keys would make K meaningless. A key per request means revoking one
+  requester destroys only their K, and two requesters never hold the same key.
+- **Trade-offs:** the server unwraps the owner's DEKs at approval, so it must be trusted at that moment. That was
+  already true: the server holds the master key that wraps every DEK (D2).
+
+### D59. RSA-OAEP-SHA256 to the requester's encryption key, with the request ID in the label
+
+- **Decision:** K is encrypted with RSA-OAEP, SHA-256, to the requester's `keypair.Encryption` public key, with the
+  label `securestore/share-key/v1:<request id>`. The owner copies the base64 ciphertext from the "Show encrypted key"
+  page into WhatsApp or email, next to the requester's key fingerprint. `key_check = HMAC-SHA256(K, request id)` is
+  stored so import can recognise the right K.
+- **Alternatives:** PKCS #1 v1.5 encryption; no label; checking K by trying to decrypt a field.
+- **Why:** OAEP is the padding RSA encryption should use today; v1.5 has padding-oracle attacks (Bleichenbacher).
+  The label binds the ciphertext to one request, so a key sent for one request can't be imported into another, even
+  by the same requester. The HMAC check works even when the owner had no data, and gives one clear "wrong key" error.
+- **Trade-offs:** the fingerprint check is manual. If both users skip it, a server that served a wrong public key
+  would go unnoticed (D42 trade-offs).
+
+### D60. Import once: K is stored only after the requester decrypts it
+
+- **Decision:** until import, the server holds K only as the RSA ciphertext. On import the requester pastes it and
+  types their password; the app unlocks their private key, decrypts K, checks `key_check`, and stores K under
+  AES-256-GCM with `DeriveKey(master, "share-key-import")`, the request ID as associated data. Later opens and
+  downloads need no password. Import attempts are limited to 10 per user per 15 minutes.
+- **Alternatives:** paste the key and password on every view and download; keep K in the session; store K under the
+  master key at grant time.
+- **Why:** asking for the password on every download would make a share of six files six password prompts. Sessions
+  hold no feature data in this app (D27). Storing K at grant time would make the WhatsApp step decoration; with
+  import, the data can't be opened until the requester proves they hold the private key. The associated data stops a
+  stored K being copied to another request.
+- **Trade-offs:** after import, K is protected by the master key, like every DEK. Someone with the master key and the
+  database could open an imported share, as they could already open the owner's data directly.
+
+### D61. The share is a snapshot taken at approval
+
+- **Decision:** profile ciphertexts are copied into the share; files are referenced by object key with their keys
+  re-wrapped. Files uploaded after approval are not shared.
+- **Alternatives:** look up the owner's current data on every open and re-wrap it then.
+- **Why:** re-wrapping on open would need the master key at open time and would make K pointless. A snapshot also
+  matches what the owner agreed to when they approved. Copying the profile keeps the share working after the owner
+  edits it (an edit replaces the document and its DEKs).
+- **Trade-offs:** the requester sees the data as it was at approval. A file the owner deletes afterwards can't be
+  downloaded (its object is gone); the owner has to approve a new request to share new files.
+
+### D62. `sharing.Active` gates every open, not only import
+
+- **Decision:** the import, open and download handlers call `Active` first, in the same HTTP request. The service
+  methods take the `*sharing.Request` it returns. `Destroy` deletes the share document on revoke and expiry.
+- **Alternatives:** check only at import; rely on `Destroy` alone.
+- **Why:** revoke and expiry must take effect at once (D54). `Destroy` runs detached and its failure is only logged
+  (D55), so it can't be the security check.
+- **Trade-offs:** one extra MongoDB read per download.
+
+### D63. `crypto.DecryptWithKeys`: decrypt with keys that are already unwrapped
+
+- **Decision:** `internal/crypto` gains `DecryptWithKeys(ctx, alg, meta, dek, macKey, dst, src)`. `Envelope.open` now
+  unwraps and calls the same internal function, so both paths verify the HMAC before writing plaintext.
+- **Alternatives:** store a new `Meta` with K-wrapped keys; copy the stream and MAC code into `sharekey`.
+- **Why:** the MAC header covers `meta.WrappedDEK` and `meta.WrappedMACKey` (D8), so swapping in K-wrapped keys would
+  break every tag. Copying the code would mean two implementations of verify-then-decrypt to keep in step.
+- **Trade-offs:** a change to the shared crypto contract, additive only: `Encryptor` is unchanged.
+
+## Known limitations (share keys)
+
+- **Snapshot** (D61): later uploads and edits aren't shared; files deleted after approval can't be downloaded.
+- **The import rate limit is in memory** (resets on restart), as D29.
+- **No change-password flow re-encrypts pending share keys.** `encrypted_key` is tied to the requester's public key,
+  which `keypair.Rewrap` doesn't change, so a password change doesn't break it.

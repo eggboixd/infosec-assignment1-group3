@@ -1,0 +1,31 @@
+{{define "sharekey.html"}}{{template "header" .}}
+{{/* Data: .Key *sharekey.KeyView: .Encoded (base64 of the RSA-OAEP
+     ciphertext), .Fingerprint (requester's encryption key), .Imported,
+     .CreatedAt, .RequestID. Only the owner of the request sees this page. */}}
+{{- with .Key}}
+<section class="card" aria-labelledby="key-title">
+  <div class="page-head">
+    <div class="gembi" data-gembi data-base-mood="smiling">{{template "mascot" "smiling"}}</div>
+    <div>
+      <h1 id="key-title">Share key</h1>
+      <p>This is the share key for the request you approved, encrypted with the requester's public key (RSA-OAEP). Only their private key can open it, so it's safe to send over WhatsApp or email.</p>
+    </div>
+  </div>
+</section>
+
+<section class="card" aria-labelledby="send-title">
+  <h2 id="send-title">Send it</h2>
+  <ol>
+    <li>Copy the whole key below.</li>
+    <li>Send it to the requester over WhatsApp or email.</li>
+    <li>Ask them to check that their key fingerprint is <code>{{.Fingerprint}}</code>.</li>
+  </ol>
+  <label class="stack">Encrypted share key
+    <textarea readonly rows="8" spellcheck="false" autocomplete="off">{{.Encoded}}</textarea>
+  </label>
+  <p class="hint">Made <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2 Jan 2006, 15:04"}}</time>.
+    {{if .Imported}}The requester has imported it.{{else}}The requester hasn't imported it yet.{{end}}</p>
+  <p><a class="btn" href="/shares">Back to data sharing</a></p>
+</section>
+{{- end}}
+{{template "footer" .}}{{end}}

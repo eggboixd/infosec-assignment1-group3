@@ -397,6 +397,28 @@ or later revokes (docs/decisions.md D53–D57, [docs/sharing.md](sharing.md)). U
 | Expiry | set `expires_at` in the past with mongosh (§5.8), reload | `Expired`; approve or revoke gives **409**, `That request has expired.` |
 | Forged flash code | `GET /shares?done=<script>` | 200, no message |
 
+### 4.10 Share keys — `/shares/requests/:id/{key,data,import,files}`
+
+Continue from an approved request in §4.9 (docs/decisions.md D58–D63, [docs/sharekeys.md](sharekeys.md)). Bob is the
+owner, alice the requester; give bob a profile and a few files first.
+
+| Case | Request | Expect |
+|---|---|---|
+| Owner key page | as bob, `GET /shares/requests/{{requestId}}/key` (the `Show encrypted key` link) | 200, a 512-character base64 key, alice's fingerprint (same as on her `/profile`), `hasn't imported it yet` |
+| Key page as requester | as alice, same URL | **404** |
+| Import form | as alice, `GET /shares/requests/{{requestId}}/data` (the `Import key / open data` link) | 200, `Import the share key`, a key box and a password field |
+| Wrong password | `POST …/import` `key=<bob's key>&password=wrong` | **401**, `Wrong password.` |
+| Wrong key | `key=AAAA` or a key from another request | **422**, `That key doesn't open this request.` |
+| Key with line breaks | paste the key split over several lines | accepted |
+| Import | right key and password | 303 → `…/data`; bob's key page now says `The requester has imported it.` |
+| Open | `GET …/data?alg=des` | 200, bob's applicant data and file list; download links carry `?alg=des` |
+| Download | click a file | 200, the original bytes, `Content-Disposition: attachment`, `Cache-Control: no-store` |
+| Bad algorithm | `GET …/data?alg=xyz` | **400** |
+| Another user | as carol, `GET …/data` | **404**, nothing of bob's shown |
+| Revoke | as bob, revoke; as alice reload `…/data` or a download link | **403**, `This access isn't active` |
+| Expiry | set `expires_at` in the past (§5.8), reload | **403**, `This access has expired.` |
+| Import rate limit | 11 imports within 15 minutes | **429** on the 11th |
+
 ## 5. Checking the encryption
 
 MongoDB and MinIO are not exposed on the host. The commands below run inside their containers from the repository
@@ -534,4 +556,16 @@ db.share_requests.find({}, {reason: 0}).sort({created_at: -1})
 // No share key, DEK or private data. To test expiry:
 db.share_requests.updateOne({_id: ObjectId("<id>")}, {$set: {expires_at: new Date(Date.now() - 1000)}})
 db.share_requests.getIndexes()   // open_pair_unique has partialFilterExpression {status: {$in: ["pending","approved"]}}
+```
+
+### 5.9 Share keys are stored encrypted
+
+```js
+db.share_keys.findOne({}, {request_id: 1, encrypted_key: 1, key_check: 1, imported_key: 1, "profile.nik.aes": 1})
+// encrypted_key: 384 bytes (RSA-3072 OAEP ciphertext), the same base64 the owner sees on the key page
+// key_check: 32 bytes (HMAC); imported_key: 60 bytes (12 nonce + 32 key + 16 tag), only after import
+// profile.nik.aes.keys.dek differs from profile.nik.aes.sealed.meta.wrapped_dek: same DEK, wrapped under the share key
+db.share_keys.getIndexes()   // request_id_unique
+// After revoke (or a lapsed approval being marked expired) the document is gone:
+db.share_keys.countDocuments({request_id: ObjectId("<id>")})   // 0
 ```

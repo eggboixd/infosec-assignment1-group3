@@ -10,7 +10,7 @@ Stored data:
 4. Videos (MP4, WebM)
 5. Applications: which scholarship a student applied to, and when
 
-> **Status:** cryptography, the frontend, private data, authentication (accounts, sessions, CSRF protection), encrypted file storage (streaming upload, download and delete), benchmarks (summary page, CSV export, the `scripts/bench` runner and a client-side download script) scholarship applications (home page, detail pages, encrypted submit), per-user key pairs and share requests (request another user's data, approve, reject, expiry, revoke; the share key itself comes with `feature/share-keys`) are implemented. Every HTTP route and its test cases are listed in [docs/api.md](docs/api.md). Measured running times are in [docs/benchmark/](docs/benchmark/README.md). See [docs/demo.md](docs/demo.md) for the clean-stack demo flow and [Team branches](#team-branches).
+> **Status:** cryptography, the frontend, private data, authentication (accounts, sessions, CSRF protection), encrypted file storage (streaming upload, download and delete), benchmarks (summary page, CSV export, the `scripts/bench` runner and a client-side download script) scholarship applications (home page, detail pages, encrypted submit), per-user key pairs and share requests (request another user's data, approve, reject, expiry, revoke) and share keys (RSA-OAEP-encrypted share key, import, open the shared data) are implemented. Every HTTP route and its test cases are listed in [docs/api.md](docs/api.md). Measured running times are in [docs/benchmark/](docs/benchmark/README.md). See [docs/demo.md](docs/demo.md) for the clean-stack demo flow and [Team branches](#team-branches).
 
 ## Architecture
 
@@ -47,6 +47,7 @@ internal/benchmark/    timing records, /benchmarks view, CSV export
 internal/applications/ scholarship catalogue, home page, encrypted applications
 internal/keypair/      per-user RSA key pairs (encryption and signing)
 internal/sharing/      share requests: request, approve, reject, expiry, revoke
+internal/sharekey/     share keys: re-wrap DEKs, RSA-OAEP to the requester, import, open
 internal/platform/     MongoDB and MinIO clients
 internal/web/          Gin engine, templates, static files, /healthz
 deploy/minio/          MinIO image built from source
@@ -132,6 +133,7 @@ Each branch fills in the `TODO(<branch>)` markers in the code.
 | `feature/benchmark` | Benchmark view, CSV export, and the repeated-download script in `scripts/bench/` |
 | `feature/keypairs` | Per-user RSA-3072 key pairs, private keys encrypted under the password |
 | `feature/share-requests` | Share-request lifecycle: request, inbox, approve/reject, expiry, revoke |
+| `feature/share-keys` | Share key per approved request: DEK re-wrap, RSA-OAEP to the requester, import, open shared data |
 | `docs/report` | The analysis report in `docs/report.md` |
 
 Merge order:
