@@ -12,13 +12,14 @@ import (
 // Collection names. main.go passes each feature store its collection, so
 // feature packages never import this package.
 const (
-	UsersCollection        = "users"
-	ProfilesCollection     = "profiles"
-	FilesCollection        = "files"
-	BenchmarksCollection   = "benchmarks"
-	SessionsCollection     = "sessions"
-	ApplicationsCollection = "applications"
-	KeypairsCollection     = "keypairs"
+	UsersCollection         = "users"
+	ProfilesCollection      = "profiles"
+	FilesCollection         = "files"
+	BenchmarksCollection    = "benchmarks"
+	SessionsCollection      = "sessions"
+	ApplicationsCollection  = "applications"
+	KeypairsCollection      = "keypairs"
+	ShareRequestsCollection = "share_requests"
 )
 
 // indexes lists the indexes each collection needs. CreateMany is idempotent
@@ -49,6 +50,15 @@ func indexes() map[string][]mongo.IndexModel {
 			// One key-pair document per user. The unique index also makes
 			// concurrent EnsureKeys calls keep exactly one set (D43).
 			{Keys: bson.D{{Key: "user_id", Value: 1}}, Options: options.Index().SetName("user_id_unique").SetUnique(true)},
+		},
+		ShareRequestsCollection: {
+			// At most one pending or approved request per (requester, owner)
+			// (docs/decisions.md D56). Expired rows still stored as approved
+			// are marked expired before a new request is inserted.
+			{Keys: bson.D{{Key: "requester_id", Value: 1}, {Key: "owner_id", Value: 1}}, Options: options.Index().SetName("open_pair_unique").SetUnique(true).
+				SetPartialFilterExpression(bson.D{{Key: "status", Value: bson.D{{Key: "$in", Value: bson.A{"pending", "approved"}}}}})},
+			{Keys: bson.D{{Key: "owner_id", Value: 1}, {Key: "created_at", Value: -1}}, Options: options.Index().SetName("owner_created")},
+			{Keys: bson.D{{Key: "requester_id", Value: 1}, {Key: "created_at", Value: -1}}, Options: options.Index().SetName("requester_created")},
 		},
 		// auth.SessionStore writes "expires_at" as a date, so this TTL index
 		// removes expired sessions.
